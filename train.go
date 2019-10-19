@@ -1,0 +1,33 @@
+package fn
+
+import (
+	"gonum.org/v1/gonum/mat"
+)
+
+type Trainer struct {
+	Alpha float64
+	Model Model
+	Loss  LossFunction
+}
+
+func (t Trainer) Train(xs, yHats []mat.Vector) float64 {
+	var totalLoss float64
+	n := float64(len(xs))
+	for i, x := range xs {
+		y, upsilons := Eval(t.Model, x)
+		yHat := yHats[i]
+		loss, dLoss := t.Loss.F(y, yHat)
+		totalLoss += loss / n
+		for j := len(t.Model) - 1; j >= 0; j-- {
+			input := x
+			if j != 0 {
+				input = upsilons[j-1]
+			}
+			dLoss = t.Model[j].D(input, dLoss)
+		}
+	}
+	for _, layer := range t.Model {
+		layer.Learn(t.Alpha)
+	}
+	return totalLoss
+}
