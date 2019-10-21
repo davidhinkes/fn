@@ -1,4 +1,4 @@
-package matarena
+package arena
 
 import (
 	"github.com/davidhinkes/slicearena"
