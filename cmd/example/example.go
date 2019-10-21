@@ -11,21 +11,35 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+const (
+	K = 16
+	KLog2 = 4
+)
+
 func main() {
 	model := fn.Model{
-		//layers.MakeSigmoidLayer(4,4),
-		//layers.MakeSigmoidLayer(4,2),
-		layers.MakePerceptronLayer(4, 1, layers.Sigmoid{}),
-		layers.MakePerceptronLayer(1, 4, layers.Sigmoid{}),
+		layers.MakePerceptronLayer(K, KLog2, layers.Sigmoid{}),
+		layers.MakePerceptronLayer(KLog2, K, layers.Sigmoid{}),
 	}
 	t := fn.Trainer{
 		Alpha: 0.05,
 		Model: model,
 		Loss:  lossfunctions.NewSquaredError(),
 	}
-	for i := uint64(0); i < 100000; i++ {
-		xs, yHats := mkExamples(100)
-		e := t.Train(xs, yHats)
+	n := int(1e4)
+	xs, yHats := mkExamples(n)
+	batchSize := 128
+	batches := n/batchSize
+	if n % batchSize != 0 {
+		batches++
+	}
+	for i := 0; i < int(5e6); i++ {
+		start := (i % batches) * batchSize
+		end := start + batchSize
+		if end > n - 1 {
+		  end = n - 1
+		}
+		e := t.Train(xs[start:end], yHats[start:end])
 		if i%250 != 0 {
 			continue
 		}
@@ -44,12 +58,11 @@ func main() {
 func mkExamples(n int) ([]mat.Vector, []mat.Vector) {
 	var xs []mat.Vector
 	var yHats []mat.Vector
-	k := 4
 	for i := 0; i < n; i++ {
-		x := make([]float64, k)
-		x[int(rand.Uint32()%uint32(k))] = 1
-		xs = append(xs, mat.NewVecDense(k, x))
-		yHats = append(yHats, mat.NewVecDense(k, x))
+		x := make([]float64, K)
+		x[int(rand.Uint32()%uint32(K))] = 1
+		xs = append(xs, mat.NewVecDense(K, x))
+		yHats = append(yHats, mat.NewVecDense(K, x))
 	}
 	return xs, yHats
 }
