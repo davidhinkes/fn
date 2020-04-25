@@ -50,7 +50,7 @@ func main() {
 	}
 	tests, _ := mkExamples(10)
 	for _, t := range tests {
-		y, _ := fn.Eval(model, t)
+		y, _ := model.Eval(t)
 		fmt.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
 	}
 }

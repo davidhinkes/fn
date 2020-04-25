@@ -14,7 +14,7 @@ func (t Trainer) Train(xs, yHats []mat.Vector) float64 {
 	var totalLoss float64
 	n := float64(len(xs))
 	for i, x := range xs {
-		y, upsilons := Eval(t.Model, x)
+		y, upsilons := t.Model.Eval(x)
 		yHat := yHats[i]
 		loss, dLoss := t.Loss.F(y, yHat)
 		totalLoss += loss / n
@@ -23,11 +23,8 @@ func (t Trainer) Train(xs, yHats []mat.Vector) float64 {
 			if j != 0 {
 				input = upsilons[j-1]
 			}
-			dLoss = t.Model[j].D(input, dLoss)
+			dLoss = t.Model[j].Learn(input, dLoss, t.Alpha)
 		}
-	}
-	for _, layer := range t.Model {
-		layer.Learn(t.Alpha)
 	}
 	return totalLoss
 }

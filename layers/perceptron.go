@@ -38,9 +38,7 @@ func (i Identity) D(x float64)float64 {
 func MakePerceptronLayer(inputs, outputs int, a ActivationFunction) fn.Layer {
 	return &perceptron{
 		w: mat.NewDense(outputs, inputs, random(inputs*outputs)),
-		dLossDW: mat.NewDense(outputs, inputs, nil), // zero matrix
 		b: mat.NewVecDense(outputs, random(outputs)),
-		dLossDB:  mat.NewVecDense(outputs, nil), // zero vector
 		activationFunction: a,
 		matArena: ma.Make(),
 	}
@@ -55,8 +53,8 @@ func random(n int) []float64 {
 }
 
 type perceptron struct {
-	w, dLossDW *mat.Dense
-	b, dLossDB *mat.VecDense
+	w *mat.Dense
+	b *mat.VecDense
 	activationFunction ActivationFunction
 	matArena ma.T
 }
@@ -74,19 +72,23 @@ func (s *perceptron) F(x mat.Vector) mat.Vector {
 	return o
 }
 
-func (s* perceptron) D(x mat.Vector, dLoss mat.Vector) mat.Vector {
+func (s* perceptron) Learn(x mat.Vector, dLoss mat.Vector, alpha float64) mat.Vector {
+	
+	outputs,inputs := s.w.Dims()
 
-	// Update s.dLossDB
+	// calculate dLossDB
+	dLossDB, _ := s.matArena.NewVecDense(outputs) // zero vector
 	for i := 0; i < dLoss.Len(); i++ {
-		v := s.dLossDB.AtVec(i)
+		v := dLossDB.AtVec(i)
 		v += dLoss.AtVec(i) * s.activationFunction.D(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i))
-		s.dLossDB.SetVec(i, v)
+		dLossDB.SetVec(i, v)
 	}
 
-	// Update s.dLossDW
-	s.dLossDW.Apply(func(i,j int, v float64)float64 {
+	// calculate dLossDW
+	dLossDW, _ := s.matArena.NewDense(outputs, inputs) // zero matrix
+	dLossDW.Apply(func(i,j int, v float64)float64 {
 		return v + dLoss.AtVec(i) *  s.activationFunction.D(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i)) * x.AtVec(j)
-	}, s.dLossDW)
+	}, dLossDW)
 
 	// Calculate dLossDX
 	dLossDX,_ := s.matArena.NewVecDense(x.Len())
@@ -97,15 +99,19 @@ func (s* perceptron) D(x mat.Vector, dLoss mat.Vector) mat.Vector {
 		}
 		dLossDX.SetVec(j, sum)
 	}
+
+	if alpha == 0 {
+		return dLossDX
+	}
+
+	// learn
+	dLossDW.Scale(-alpha, dLossDW)
+	s.w.Add(s.w, dLossDW)
+	dLossDW.Zero()
+
+	dLossDB.ScaleVec(-alpha, dLossDB)
+	s.b.AddVec(s.b, dLossDB)
+	dLossDB.Zero()
+
 	return dLossDX
-}
-
-func (s *perceptron) Learn(alpha float64) {
-	s.dLossDW.Scale(-alpha, s.dLossDW)
-	s.w.Add(s.w, s.dLossDW)
-	s.dLossDW.Zero()
-
-	s.dLossDB.ScaleVec(-alpha, s.dLossDB)
-	s.b.AddVec(s.b, s.dLossDB)
-	s.dLossDB.Zero()
 }
