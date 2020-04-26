@@ -62,8 +62,10 @@ func mkExamples(n int) ([]mat.Vector, []mat.Vector) {
 	var yHats []mat.Vector
 	for i := 0; i < n; i++ {
 		x := make([]float64, K)
+		// x is a one-hot vector
 		x[int(rand.Uint32()%uint32(K))] = 1
 		xs = append(xs, mat.NewVecDense(K, x))
+		// autoencoder
 		yHats = append(yHats, mat.NewVecDense(K, x))
 	}
 	return xs, yHats

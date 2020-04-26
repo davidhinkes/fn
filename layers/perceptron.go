@@ -103,11 +103,9 @@ func (s* perceptron) Learn(x mat.Vector, dLoss mat.Vector, alpha float64) mat.Ve
 	// learn
 	dLossDW.Scale(-alpha, dLossDW)
 	s.w.Add(s.w, dLossDW)
-	dLossDW.Zero()
 
 	dLossDB.ScaleVec(-alpha, dLossDB)
 	s.b.AddVec(s.b, dLossDB)
-	dLossDB.Zero()
 
 	return dLossDX
 }
