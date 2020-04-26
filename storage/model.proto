@@ -1,0 +1,9 @@
+syntax = "proto3";
+package storage;
+
+import "google/protobuf/any.proto";
+
+message Model{
+  repeated google.protobuf.Any layers = 1;
+  google.protobuf.Any loss_function = 2;
+}
