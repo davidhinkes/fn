@@ -11,28 +11,21 @@ import (
 )
 
 type ActivationFunction interface {
-	F(float64)float64
-	D(float64)float64
+	F(float64) (float64,float64)
 }
 
 type Sigmoid struct {}
 
-func (s Sigmoid) F(x float64)float64 {
-	return 1. / (math.Exp(-x) + 1.)
-}
-func (s Sigmoid) D(x float64)float64 {
-	v := s.F(x)
-	return v*(1-v)
+func (s Sigmoid) F(x float64) (float64,float64) {
+	f := 1. / (math.Exp(-x) + 1.)
+	d := f*(1-f)
+	return f,d
 }
 
 type Identity struct {}
 
-func (i Identity) F(x float64)float64 {
-	return x
-}
-
-func (i Identity) D(x float64)float64 {
-	return 1.0
+func (i Identity) F(x float64) (float64, float64) {
+	return x,1.0
 }
 
 func MakePerceptronLayer(inputs, outputs int, a ActivationFunction) fn.Layer {
@@ -66,8 +59,8 @@ func (s *perceptron) F(x mat.Vector) mat.Vector {
 	o.MulVec(s.w, x)
 	o.AddVec(o, s.b)
 	for i := 0; i < o.Len(); i++ {
-		v := o.AtVec(i)
-		o.SetVec(i, s.activationFunction.F(v))
+		f,_ := s.activationFunction.F(o.AtVec(i))
+		o.SetVec(i, f)
 	}
 	return o
 }
@@ -80,14 +73,16 @@ func (s* perceptron) Learn(x mat.Vector, dLoss mat.Vector, alpha float64) mat.Ve
 	dLossDB, _ := s.matArena.NewVecDense(outputs) // zero vector
 	for i := 0; i < dLoss.Len(); i++ {
 		v := dLossDB.AtVec(i)
-		v += dLoss.AtVec(i) * s.activationFunction.D(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i))
+		_,d := s.activationFunction.F(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i))
+		v += dLoss.AtVec(i) *  d
 		dLossDB.SetVec(i, v)
 	}
 
 	// calculate dLossDW
 	dLossDW, _ := s.matArena.NewDense(outputs, inputs) // zero matrix
 	dLossDW.Apply(func(i,j int, v float64)float64 {
-		return v + dLoss.AtVec(i) *  s.activationFunction.D(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i)) * x.AtVec(j)
+		_,d := s.activationFunction.F(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i))
+		return v + dLoss.AtVec(i) * d * x.AtVec(j)
 	}, dLossDW)
 
 	// Calculate dLossDX
@@ -95,7 +90,8 @@ func (s* perceptron) Learn(x mat.Vector, dLoss mat.Vector, alpha float64) mat.Ve
 	for j := 0; j < x.Len(); j++ {
 		var sum float64
 		for i := 0; i < dLoss.Len(); i++ {
-			sum += dLoss.AtVec(i) *  s.activationFunction.D(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i)) * s.w.At(i,j)
+			_,d := s.activationFunction.F(mat.Dot(s.w.RowView(i), x) + s.b.AtVec(i))
+			sum += dLoss.AtVec(i) * d  * s.w.At(i,j)
 		}
 		dLossDX.SetVec(j, sum)
 	}
