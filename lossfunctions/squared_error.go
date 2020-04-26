@@ -25,5 +25,5 @@ func (s squaredError) F(y mat.Vector, yHat mat.Vector) (float64, mat.Vector) {
 	loss.MulElemVec(e,e)
 	d, _ := s.arena.NewVecDense(y.Len())
 	d.ScaleVec(2.0, e)
-	return mat.Sum(loss), e
+	return mat.Sum(loss), d
 }
