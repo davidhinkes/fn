@@ -7,7 +7,6 @@ import (
 type Trainer struct {
 	Alpha float64
 	Model Model
-	Loss  LossFunction
 }
 
 func (t Trainer) Train(xs, yHats []mat.Vector) float64 {
@@ -16,14 +15,14 @@ func (t Trainer) Train(xs, yHats []mat.Vector) float64 {
 	for i, x := range xs {
 		y, upsilons := t.Model.Eval(x)
 		yHat := yHats[i]
-		loss, dLoss := t.Loss.F(y, yHat)
+		loss, dLoss := t.Model.LossFunction.F(y, yHat)
 		totalLoss += loss / n
-		for j := len(t.Model) - 1; j >= 0; j-- {
+		for j := len(t.Model.Layers) - 1; j >= 0; j-- {
 			input := x
 			if j != 0 {
 				input = upsilons[j-1]
 			}
-			dLoss = t.Model[j].Learn(input, dLoss, t.Alpha)
+			dLoss = t.Model.Layers[j].Learn(input, dLoss, t.Alpha)
 		}
 	}
 	return totalLoss

@@ -18,13 +18,15 @@ const (
 
 func main() {
 	model := fn.Model{
-		layers.MakePerceptronLayer(K, KLog2, layers.Sigmoid{}),
-		layers.MakePerceptronLayer(KLog2, K, layers.Sigmoid{}),
+		Layers: []fn.Layer{
+			layers.MakePerceptronLayer(K, KLog2, layers.Sigmoid{}),
+			layers.MakePerceptronLayer(KLog2, K, layers.Sigmoid{}),
+		},
+        LossFunction: lossfunctions.NewSquaredError(),
 	}
 	t := fn.Trainer{
 		Alpha: 0.05,
 		Model: model,
-		Loss:  lossfunctions.NewSquaredError(),
 	}
 	n := int(1e4)
 	xs, yHats := mkExamples(n)

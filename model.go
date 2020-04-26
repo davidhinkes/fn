@@ -4,7 +4,10 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type Model []Layer
+type Model struct {
+	Layers []Layer
+	LossFunction LossFunction
+}
 
 // A layer represents a mathematical function.
 // y = F(x)
@@ -23,7 +26,7 @@ type Layer interface {
 func (m Model) Eval(x mat.Vector) (mat.Vector, []mat.Vector) {
 	var upsilons []mat.Vector
 	previousUpsilon := x
-	for _, l := range []Layer(m) {
+	for _, l := range m.Layers {
 		u := l.F(previousUpsilon)
 		upsilons = append(upsilons, u)
 		previousUpsilon = u
