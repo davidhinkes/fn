@@ -47,10 +47,7 @@ func main() {
 		},
 		LossFunction: lossfunctions.NewSquaredError(),
 	}
-	t := fn.Trainer{
-		Alpha: 0.05,
-		Model: model,
-	}
+	alpha := 0.05
 	n := int(1e4)
 	xs, yHats := mkExamples(n)
 	batchSize := 128
@@ -65,7 +62,7 @@ func main() {
 		if end > n-1 {
 			end = n - 1
 		}
-		e := t.Train(xs[start:end], yHats[start:end])
+		e := fn.Train(model, xs[start:end], yHats[start:end], alpha)
 		if time.Since(lastLogUpdate) < *logUpdatePeriod {
 			continue
 		}
