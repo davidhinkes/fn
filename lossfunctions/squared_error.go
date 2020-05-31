@@ -20,9 +20,9 @@ type squaredError struct {
 func (s squaredError) F(y mat.Vector, yHat mat.Vector) (float64, mat.Vector) {
 	s.arena.Reset()
 	e, _ := s.arena.NewVecDense(y.Len())
-	e.SubVec(y,yHat)
+	e.SubVec(y, yHat)
 	loss, _ := s.arena.NewVecDense(y.Len())
-	loss.MulElemVec(e,e)
+	loss.MulElemVec(e, e)
 	d, _ := s.arena.NewVecDense(y.Len())
 	d.ScaleVec(2.0, e)
 	return mat.Sum(loss), d

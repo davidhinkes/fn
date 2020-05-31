@@ -27,7 +27,7 @@ var (
 	logUpdatePeriod = flag.Duration("log_update_period", 30*time.Second, "time between update")
 )
 
-func port()string {
+func port() string {
 	env := os.Getenv("PORT")
 	if env == "" {
 		return "8080"

@@ -20,11 +20,11 @@ func (t T) Reset() {
 }
 
 func (t T) NewDense(r, c int) (*mat.Dense, []float64) {
-	s := t.arena.MakeSlice(r*c).([]float64)
-	return mat.NewDense(r,c, s),s
+	s := t.arena.MakeSlice(r * c).([]float64)
+	return mat.NewDense(r, c, s), s
 }
 
 func (t T) NewVecDense(r int) (*mat.VecDense, []float64) {
 	s := t.arena.MakeSlice(r).([]float64)
-	return mat.NewVecDense(r, s),s
+	return mat.NewVecDense(r, s), s
 }
