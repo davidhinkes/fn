@@ -1,39 +1,69 @@
 package fn
 
 import (
-	"math/rand"
+	"sync"
 
 	"gonum.org/v1/gonum/mat"
 )
 
+type partialDerivative struct {
+	v []mat.Vector
+	l float64
+}
+
 func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
-	var totalLoss float64
-	n := float64(len(xs))
-	partials := make([]*mat.VecDense, len(model.Layers))
+	// c is the main channel for doing work. For each xs spawn a gothread
+	// that will push one item.
+	c := make(chan partialDerivative)
+	wg := sync.WaitGroup{}
+	wg.Add(len(xs))
+	// Close c only after all workers have completed.
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
 	for i, x := range xs {
-		y, upsilons := model.Eval(x)
-		yHat := yHats[i]
-		loss, dLoss := model.LossFunction.F(y, yHat)
-		totalLoss += loss / n
-		for j := len(model.Layers) - 1; j >= 0; j-- {
-			input := x
-			if j != 0 {
-				input = upsilons[j-1]
+		go func(x mat.Vector, yHat mat.Vector) {
+			defer wg.Done()
+			y, upsilons := model.Eval(x)
+			loss, dLossDY := model.LossFunction.F(y, yHat)
+			partial := partialDerivative{
+				l: loss,
+				v: make([]mat.Vector, len(model.Layers)),
 			}
-			dl, p := model.Layers[j].Backpropagate(input, dLoss)
-			dLoss = dl
-			if pj := partials[j]; pj == nil {
-				partials[j] = mat.VecDenseCopyOf(p)
-			} else {
-				pj.AddVec(pj, p)
+			for j := len(model.Layers) - 1; j >= 0; j-- {
+				input := x
+				if j != 0 {
+					input = upsilons[j-1]
+				}
+				dLossDY, partial.v[j] = model.Layers[j].Backpropagate(input, dLossDY)
 			}
-		}
+			c <- partial
+		}(x, yHats[i])
 	}
-	m := rand.Float64() + 0.5
+	var totalLoss float64
+	partials := make([]*mat.VecDense, len(model.Layers))
+	for p := range c {
+		//totalLoss += p.l / float64(len(xs))
+		totalLoss += p.l
+		agg(partials, p.v)
+	}
+	// Apply the updates to the model
 	for i, layer := range model.Layers {
 		p := partials[i]
-		p.ScaleVec(-alpha*m, p)
+		p.ScaleVec(-alpha, p)
 		layer.Learn(p)
 	}
 	return totalLoss
+}
+
+func agg(ps []*mat.VecDense, vs []mat.Vector) {
+	for i, p := range ps {
+		v := vs[i]
+		if p == nil {
+			ps[i] = mat.VecDenseCopyOf(v)
+			continue
+		}
+		p.AddVec(p, v)
+	}
 }

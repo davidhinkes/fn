@@ -25,6 +25,7 @@ const (
 
 var (
 	logUpdatePeriod = flag.Duration("log_update_period", 30*time.Second, "time between update")
+	batchSize       = flag.Int("batch_size", 128, "batch size")
 )
 
 func port() string {
@@ -50,15 +51,14 @@ func main() {
 	alpha := 0.05
 	n := int(1e4)
 	xs, yHats := mkExamples(n)
-	batchSize := 128
-	batches := n / batchSize
-	if n%batchSize != 0 {
+	batches := n / *batchSize
+	if n%*batchSize != 0 {
 		batches++
 	}
 	lastLogUpdate := time.Now()
 	for i := 0; i < int(5e6); i++ {
-		start := (i % batches) * batchSize
-		end := start + batchSize
+		start := (i % batches) * *batchSize
+		end := start + *batchSize
 		if end > n-1 {
 			end = n - 1
 		}
