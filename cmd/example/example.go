@@ -19,13 +19,16 @@ import (
 )
 
 const (
-	K     = 16
-	KLog2 = 4
+	K     = 32
+	KLog2 = 5
 )
 
 var (
-	logUpdatePeriod = flag.Duration("log_update_period", 30*time.Second, "time between update")
+	logUpdatePeriod = flag.Duration("log_update_period", 1*time.Second, "time between update")
+	maxTime = flag.Duration("max_time", 3*time.Minute, "how long should we crunch on the data?")
 	batchSize       = flag.Int("batch_size", 128, "batch size")
+	trainingExamples = flag.Int("training_examples", 1024, "")
+	alpha = flag.Float64("alpha", 5e-2, "alpha")
 )
 
 func port() string {
@@ -48,29 +51,33 @@ func main() {
 		},
 		LossFunction: lossfunctions.NewSquaredError(),
 	}
-	alpha := 0.05
-	n := int(1e4)
+	n := *trainingExamples
 	xs, yHats := mkExamples(n)
 	batches := n / *batchSize
 	if n%*batchSize != 0 {
 		batches++
 	}
-	lastLogUpdate := time.Now()
-	for i := 0; i < int(5e6); i++ {
+	lastLogUpdateTime := time.Now()
+	lastLogUpdateIteration := 0
+	startTime := lastLogUpdateTime
+	for i := 0;; i++ {
 		start := (i % batches) * *batchSize
 		end := start + *batchSize
 		if end > n-1 {
 			end = n - 1
 		}
-		e := fn.Train(model, xs[start:end], yHats[start:end], alpha)
-		if time.Since(lastLogUpdate) < *logUpdatePeriod {
-			continue
-		}
-		lastLogUpdate = time.Now()
-		log.Printf("error: %v\n", e)
-		if e < 1e-5 {
+		e := fn.Train(model, xs[start:end], yHats[start:end], *alpha)
+		if time.Since(startTime) > *maxTime {
 			break
 		}
+		deltaTime := time.Since(lastLogUpdateTime)
+		if deltaTime < *logUpdatePeriod {
+			continue
+		}
+		lastLogUpdateTime = time.Now()
+		iterations := i - lastLogUpdateIteration
+		lastLogUpdateIteration = i
+		fmt.Printf("loss: %e  iterations: %v\t\t\r", e, iterations)
 	}
 	tests, _ := mkExamples(10)
 	for _, t := range tests {
