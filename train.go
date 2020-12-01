@@ -44,7 +44,6 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 	var totalLoss float64
 	partials := make([]*mat.VecDense, len(model.Layers))
 	for p := range c {
-		//totalLoss += p.l / float64(len(xs))
 		totalLoss += p.l
 		agg(partials, p.v)
 	}
