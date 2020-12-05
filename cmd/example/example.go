@@ -24,11 +24,11 @@ const (
 )
 
 var (
-	logUpdatePeriod = flag.Duration("log_update_period", 1*time.Second, "time between update")
-	maxTime = flag.Duration("max_time", 3*time.Minute, "how long should we crunch on the data?")
-	batchSize       = flag.Int("batch_size", 128, "batch size")
+	logUpdatePeriod  = flag.Duration("log_update_period", 1*time.Second, "time between update")
+	maxTime          = flag.Duration("max_time", 3*time.Minute, "how long should we crunch on the data?")
+	batchSize        = flag.Int("batch_size", 128, "batch size")
 	trainingExamples = flag.Int("training_examples", 1024, "")
-	alpha = flag.Float64("alpha", 5e-2, "alpha")
+	alpha            = flag.Float64("alpha", 5e-2, "alpha")
 )
 
 func port() string {
@@ -46,8 +46,8 @@ func main() {
 	}()
 	model := fn.Model{
 		Layers: []fn.Layer{
-			layers.MakePerceptronLayer(K, KLog2, layers.Sigmoid{}),
-			layers.MakePerceptronLayer(KLog2, K, layers.Sigmoid{}),
+			layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.Sigmoid{},
+			layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.Sigmoid{},
 		},
 		LossFunction: lossfunctions.NewSquaredError(),
 	}
@@ -60,7 +60,7 @@ func main() {
 	lastLogUpdateTime := time.Now()
 	lastLogUpdateIteration := 0
 	startTime := lastLogUpdateTime
-	for i := 0;; i++ {
+	for i := 0; ; i++ {
 		start := (i % batches) * *batchSize
 		end := start + *batchSize
 		if end > n-1 {

@@ -26,7 +26,7 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 		go func(x mat.Vector, yHat mat.Vector) {
 			defer wg.Done()
 			y, upsilons := model.Eval(x)
-			loss, dLossDY := model.LossFunction.F(y, yHat)
+			loss, dLossDyT := model.LossFunction.F(y, yHat)
 			partial := partialDerivative{
 				l: loss,
 				v: make([]mat.Vector, len(model.Layers)),
@@ -36,7 +36,14 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 				if j != 0 {
 					input = upsilons[j-1]
 				}
-				dLossDY, partial.v[j] = model.Layers[j].Backpropagate(input, dLossDY)
+				dYdX, dYdH := model.Layers[j].D(input)
+				// dYdH being nil is valid, meaning the Zero matrix
+				if dYdH == nil {
+					partial.v[j] = nil
+				} else {
+					partial.v[j] = mulVec(mat.Transpose{dYdH}, dLossDyT)
+				}
+				dLossDyT = mulVec(mat.Transpose{dYdX}, dLossDyT)
 			}
 			c <- partial
 		}(x, yHats[i])
@@ -49,16 +56,27 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 	}
 	// Apply the updates to the model
 	for i, layer := range model.Layers {
-		p := partials[i]
-		p.ScaleVec(-alpha, p)
-		layer.Learn(p)
+		if partials[i] == nil {
+			continue
+		}
+		h := layer.Hyperparameters()
+		h.AddScaledVec(h, -alpha, partials[i])
 	}
 	return totalLoss
+}
+
+func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
+	var ret mat.VecDense
+	ret.MulVec(m, v)
+	return &ret
 }
 
 func agg(ps []*mat.VecDense, vs []mat.Vector) {
 	for i, p := range ps {
 		v := vs[i]
+		if v == nil {
+			continue
+		}
 		if p == nil {
 			ps[i] = mat.VecDenseCopyOf(v)
 			continue
