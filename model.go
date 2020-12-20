@@ -6,7 +6,6 @@ import (
 
 type Model struct {
 	Layers       []Layer
-	LossFunction LossFunction
 }
 
 func (m Model) Eval(x mat.Vector) (mat.Vector, []mat.Vector) {

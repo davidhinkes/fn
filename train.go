@@ -11,12 +11,13 @@ type partialDerivative struct {
 	l float64
 }
 
-func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
+func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) float64 {
 	// c is the main channel for doing work. For each xs spawn a gothread
 	// that will push one item.
 	c := make(chan partialDerivative)
 	wg := sync.WaitGroup{}
-	wg.Add(len(xs))
+	n := len(xs)
+	wg.Add(n)
 	// Close c only after all workers have completed.
 	go func() {
 		wg.Wait()
@@ -26,7 +27,7 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 		go func(x mat.Vector, yHat mat.Vector) {
 			defer wg.Done()
 			y, upsilons := model.Eval(x)
-			loss, dLossDyT := model.LossFunction.F(y, yHat)
+			loss, dLossDyT := lossFunction.F(y, yHat)
 			partial := partialDerivative{
 				l: loss,
 				v: make([]mat.Vector, len(model.Layers)),
@@ -51,10 +52,9 @@ func Train(model Model, xs, yHats []mat.Vector, alpha float64) float64 {
 	var totalLoss float64
 	partials := make([]*mat.VecDense, len(model.Layers))
 	for p := range c {
-		totalLoss += p.l
-		agg(partials, p.v)
+		totalLoss += p.l/float64(n)
+		agg(partials, p.v, n)
 	}
-	// Apply the updates to the model
 	for i, layer := range model.Layers {
 		if partials[i] == nil {
 			continue
@@ -71,16 +71,16 @@ func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
 	return &ret
 }
 
-func agg(ps []*mat.VecDense, vs []mat.Vector) {
+func agg(ps []*mat.VecDense, vs []mat.Vector, n int) {
 	for i, p := range ps {
 		v := vs[i]
 		if v == nil {
 			continue
 		}
 		if p == nil {
-			ps[i] = mat.VecDenseCopyOf(v)
-			continue
+			ps[i] = mat.NewVecDense(v.Len(), nil)
+			p = ps[i]
 		}
-		p.AddVec(p, v)
+		p.AddScaledVec(p, 1. / float64(n), v)
 	}
 }

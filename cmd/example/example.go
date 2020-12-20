@@ -47,10 +47,10 @@ func main() {
 	model := fn.Model{
 		Layers: []fn.Layer{
 			layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.Sigmoid{},
-			layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.Sigmoid{},
+			layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K),
 		},
-		LossFunction: lossfunctions.NewSquaredError(),
 	}
+	lossFunction := lossfunctions.NewSquaredError()
 	n := *trainingExamples
 	xs, yHats := mkExamples(n)
 	batches := n / *batchSize
@@ -66,7 +66,7 @@ func main() {
 		if end > n-1 {
 			end = n - 1
 		}
-		e := fn.Train(model, xs[start:end], yHats[start:end], *alpha)
+		e := fn.Train(model, xs[start:end], yHats[start:end], lossFunction, *alpha)
 		if time.Since(startTime) > *maxTime {
 			break
 		}

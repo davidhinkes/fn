@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine as build
+FROM golang:1.15-alpine as build
 WORKDIR /tmp/work/fn
 COPY . .
 RUN go test .
