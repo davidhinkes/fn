@@ -7,27 +7,26 @@ import (
 )
 
 type scalar struct {
-	w *mat.VecDense
+	n int
 }
 
 func MakeScalarLayer(n int) fn.Layer {
 	s := scalar{
-		w: mat.NewVecDense(n, nil),
+		n: n,
 	}
-	randomize(s.w)
 	return s
 }
 
-func (s scalar) Hyperparameters() *mat.VecDense {
-	return s.w
+func (s scalar) NumHyperparameters() int {
+	return s.n
 }
 
-func (s scalar) F(x mat.Vector) mat.Vector {
+func (s scalar) F(x mat.Vector, h []float64) mat.Vector {
 	var ret mat.VecDense
-	ret.MulElemVec(x, s.w)
+	ret.MulElemVec(x, mat.NewVecDense(s.n, h))
 	return &ret
 }
 
-func (s scalar) D(x mat.Vector) (mat.Matrix, mat.Matrix) {
-	return diag(s.w), diag(x)
+func (s scalar) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
+	return mat.NewDiagDense(len(h), h), diag(x)
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type bias struct {
-	w        *mat.VecDense
+	n        int
 	identity mat.Matrix
 }
 
@@ -17,23 +17,23 @@ func MakeBiasLayer(n int) fn.Layer {
 		ident.SetDiag(i, 1.0)
 	}
 	b := bias{
-		w:        mat.NewVecDense(n, nil),
+		n:        n,
 		identity: ident,
 	}
-	randomize(b.w)
 	return b
 }
 
-func (b bias) Hyperparameters() *mat.VecDense {
-	return b.w
+func (b bias) NumHyperparameters() int {
+	return b.n
 }
 
-func (b bias) F(x mat.Vector) mat.Vector {
+func (b bias) F(x mat.Vector, h []float64) mat.Vector {
+	w := mat.NewVecDense(b.n, h)
 	var ret mat.VecDense
-	ret.AddVec(x, b.w)
+	ret.AddVec(x, w)
 	return &ret
 }
 
-func (b bias) D(x mat.Vector) (mat.Matrix, mat.Matrix) {
+func (b bias) D(x mat.Vector, _ []float64) (mat.Matrix, mat.Matrix) {
 	return b.identity, b.identity
 }

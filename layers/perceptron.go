@@ -6,34 +6,30 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func makeHyperparameters(inputs, outputs int) (*mat.Dense, *mat.VecDense) {
-	n := inputs * outputs
-	s := make([]float64, n)
-	return mat.NewDense(outputs, inputs, s), mat.NewVecDense(n, s)
-}
-
 func MakePerceptronLayer(inputs, outputs int) fn.Layer {
-	w, h := makeHyperparameters(inputs, outputs)
-	randomize(h)
 	return &perceptron{
-		hyperparameters: h,
-		w:               w,
+		inputs:  inputs,
+		outputs: outputs,
 	}
 }
 
+type perceptron struct {
+	inputs  int
+	outputs int
+}
+
 func (p *perceptron) dim(x int) (int, int) {
-	_, c := p.w.Dims()
+	c := p.inputs
 	return x / c, x % c
 }
 
-type perceptron struct {
-	hyperparameters *mat.VecDense
-	w               *mat.Dense
+func (p *perceptron) mkWeights(h []float64) mat.Matrix {
+	return mat.NewDense(p.outputs, p.inputs, h)
 }
 
-func (p *perceptron) D(x mat.Vector) (mat.Matrix, mat.Matrix) {
-	m, _ := p.w.Dims()
-	dYdH := mat.NewDense(m, p.hyperparameters.Len(), nil)
+func (p *perceptron) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
+	w := p.mkWeights(h)
+	dYdH := mat.NewDense(p.outputs, len(h), nil)
 	dYdH.Apply(func(i, j int, _ float64) float64 {
 		l, m := p.dim(j)
 		if i != l {
@@ -41,15 +37,15 @@ func (p *perceptron) D(x mat.Vector) (mat.Matrix, mat.Matrix) {
 		}
 		return x.AtVec(m)
 	}, dYdH)
-	return p.w, dYdH
+	return w, dYdH
 }
 
-func (p *perceptron) F(x mat.Vector) mat.Vector {
+func (p *perceptron) F(x mat.Vector, h []float64) mat.Vector {
 	var ret mat.VecDense
-	ret.MulVec(p.w, x)
+	ret.MulVec(p.mkWeights(h), x)
 	return &ret
 }
 
-func (p *perceptron) Hyperparameters() *mat.VecDense {
-	return p.hyperparameters
+func (p *perceptron) NumHyperparameters() int {
+	return p.inputs * p.outputs
 }

@@ -7,12 +7,10 @@ import (
 type Layer interface {
 	// F is the layer's forward function. Given vector x as an input, returns an output vector.
 	// |return| = |y|
-	F(x mat.Vector) mat.Vector
+	F(x mat.Vector, h []float64) mat.Vector
 
 	// D returns the partial derivitives of the layer.
-	D(x mat.Vector) (dYdX mat.Matrix, dYdH mat.Matrix)
+	D(x mat.Vector, h []float64) (dYdX mat.Matrix, dYdH mat.Matrix)
 
-	// Hyperparameters returns the underlying hyperparemeters, which
-	// will be modified.
-	Hyperparameters() *mat.VecDense
+	NumHyperparameters() int
 }

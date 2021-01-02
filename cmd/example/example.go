@@ -44,29 +44,18 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
-	model := fn.Model{
-		Layers: []fn.Layer{
-			layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.Sigmoid{},
-			layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K),
-		},
-	}
+	model := fn.MakeModel(
+		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeRelu(),
+		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeRelu(),
+	)
 	lossFunction := lossfunctions.NewSquaredError()
-	n := *trainingExamples
-	xs, yHats := mkExamples(n)
-	batches := n / *batchSize
-	if n%*batchSize != 0 {
-		batches++
-	}
+	vxs, vys := mkExamples(*trainingExamples)
 	lastLogUpdateTime := time.Now()
 	lastLogUpdateIteration := 0
 	startTime := lastLogUpdateTime
 	for i := 0; ; i++ {
-		start := (i % batches) * *batchSize
-		end := start + *batchSize
-		if end > n-1 {
-			end = n - 1
-		}
-		e := fn.Train(model, xs[start:end], yHats[start:end], lossFunction, *alpha)
+		xs, ys := mkExamples(*batchSize)
+		e := fn.Train(model, xs, ys, lossFunction, *alpha)
 		if time.Since(startTime) > *maxTime {
 			break
 		}
@@ -77,6 +66,7 @@ func main() {
 		lastLogUpdateTime = time.Now()
 		iterations := i - lastLogUpdateIteration
 		lastLogUpdateIteration = i
+		e = fn.Train(model, vxs, vys, lossFunction, 0)
 		fmt.Printf("loss: %e  iterations: %v\t\t\r", e, iterations)
 	}
 	tests, _ := mkExamples(10)
@@ -98,12 +88,4 @@ func mkExamples(n int) ([]mat.Vector, []mat.Vector) {
 		yHats = append(yHats, mat.NewVecDense(K, x))
 	}
 	return xs, yHats
-}
-
-func random(n int) []float64 {
-	ret := make([]float64, n)
-	for i := range ret {
-		ret[i] = rand.Float64()
-	}
-	return ret
 }

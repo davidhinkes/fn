@@ -30,14 +30,15 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 			loss, dLossDyT := lossFunction.F(y, yHat)
 			partial := partialDerivative{
 				l: loss,
-				v: make([]mat.Vector, len(model.Layers)),
+				v: make([]mat.Vector, len(model.nodes)),
 			}
-			for j := len(model.Layers) - 1; j >= 0; j-- {
+			for j := len(model.nodes) - 1; j >= 0; j-- {
 				input := x
 				if j != 0 {
 					input = upsilons[j-1]
 				}
-				dYdX, dYdH := model.Layers[j].D(input)
+				hyperparameters := model.nodes[j].hyperparameters
+				dYdX, dYdH := model.nodes[j].layer.D(input, hyperparameters)
 				// dYdH being nil is valid, meaning the Zero matrix
 				if dYdH == nil {
 					partial.v[j] = nil
@@ -50,17 +51,29 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 		}(x, yHats[i])
 	}
 	var totalLoss float64
-	partials := make([]*mat.VecDense, len(model.Layers))
+	partials := make([]*mat.VecDense, len(model.nodes))
 	for p := range c {
-		totalLoss += p.l/float64(n)
+		totalLoss += p.l / float64(n)
 		agg(partials, p.v, n)
 	}
-	for i, layer := range model.Layers {
+	if alpha == 0 {
+		return totalLoss
+	}
+	var sum float64
+	for _, p := range partials {
+		if p == nil {
+			continue
+		}
+		sum += mat.Dot(p, p)
+	}
+	for i, node := range model.nodes {
 		if partials[i] == nil {
 			continue
 		}
-		h := layer.Hyperparameters()
-		h.AddScaledVec(h, -alpha, partials[i])
+		hSlice := node.hyperparameters
+		h := mat.NewVecDense(len(hSlice), hSlice)
+		p := partials[i]
+		h.AddScaledVec(h, -alpha*totalLoss/sum, p)
 	}
 	return totalLoss
 }
@@ -81,6 +94,6 @@ func agg(ps []*mat.VecDense, vs []mat.Vector, n int) {
 			ps[i] = mat.NewVecDense(v.Len(), nil)
 			p = ps[i]
 		}
-		p.AddScaledVec(p, 1. / float64(n), v)
+		p.AddScaledVec(p, 1./float64(n), v)
 	}
 }
