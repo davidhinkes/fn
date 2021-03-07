@@ -4,6 +4,7 @@ import (
 	"fn"
 	"fn/layers"
 	"fn/lossfunctions"
+	"fn/test"
 
 	"flag"
 	"fmt"
@@ -45,16 +46,17 @@ func main() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
 	model := fn.MakeModel(
-		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeRelu(),
-		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeRelu(),
+		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(),
+		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(), layers.MakeScalarLayer(K),
 	)
 	lossFunction := lossfunctions.NewSquaredError()
-	vxs, vys := mkExamples(*trainingExamples)
+	truth := oneHot{Cardinality: K}
+	vxs, vys := test.MakeExamples(truth, *trainingExamples)
 	lastLogUpdateTime := time.Now()
 	lastLogUpdateIteration := 0
 	startTime := lastLogUpdateTime
 	for i := 0; ; i++ {
-		xs, ys := mkExamples(*batchSize)
+		xs, ys := test.MakeExamples(truth, *batchSize)
 		e := fn.Train(model, xs, ys, lossFunction, *alpha)
 		if time.Since(startTime) > *maxTime {
 			break
@@ -69,23 +71,28 @@ func main() {
 		e = fn.Train(model, vxs, vys, lossFunction, 0)
 		fmt.Printf("loss: %e  iterations: %v\t\t\r", e, iterations)
 	}
-	tests, _ := mkExamples(10)
+	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
 		y, _ := model.Eval(t)
 		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
 	}
 }
 
-func mkExamples(n int) ([]mat.Vector, []mat.Vector) {
-	var xs []mat.Vector
-	var yHats []mat.Vector
-	for i := 0; i < n; i++ {
-		x := make([]float64, K)
-		// x is a one-hot vector
-		x[int(rand.Uint32()%uint32(K))] = 1
-		xs = append(xs, mat.NewVecDense(K, x))
-		// autoencoder
-		yHats = append(yHats, mat.NewVecDense(K, x))
-	}
-	return xs, yHats
+type oneHot struct {
+	Cardinality int
+}
+
+var _ test.Truth = oneHot{}
+
+func (o oneHot) Dims() (int, int) {
+	return o.Cardinality, o.Cardinality
+}
+
+func (o oneHot) F(dst *mat.VecDense, x mat.Vector) {
+	dst.CloneFromVec(x)
+}
+
+func (o oneHot) Rand(dst *mat.VecDense) {
+	dst.Zero()
+	dst.SetVec(rand.Int()%o.Cardinality, 1.0)
 }
