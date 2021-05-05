@@ -17,7 +17,7 @@ func MakeScalarLayer(n int) fn.Layer {
 	return s
 }
 
-func (s scalar) NumHyperparameters() int {
+func (s scalar) NumWeights() int {
 	return s.n
 }
 

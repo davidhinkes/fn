@@ -25,21 +25,21 @@ type par struct {
 	layers []Layer
 }
 
-func (p par) hyperparameters(h []float64) [][]float64 {
+func (p par) weights(h []float64) [][]float64 {
 	var hs [][]float64
 	var offset int
 	for _, layer := range p.layers {
-		numHyperparameters := layer.NumHyperparameters()
-		j := offset + numHyperparameters
+		numWeights := layer.NumWeights()
+		j := offset + numWeights
 		i := offset
 		hs = append(hs, h[i:j])
-		offset += numHyperparameters
+		offset += numWeights
 	}
 	return hs
 }
 
 func (p par) F(x mat.Vector, h []float64) mat.Vector {
-	hs := p.hyperparameters(h)
+	hs := p.weights(h)
 	var yLen int
 	var ys []mat.Vector
 	for i, h := range hs {
@@ -59,7 +59,7 @@ func (p par) F(x mat.Vector, h []float64) mat.Vector {
 }
 
 func (p par) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
-	hs := p.hyperparameters(h)
+	hs := p.weights(h)
 	var dxs []mat.Matrix
 	var dhs []mat.Matrix
 	var yLen int
@@ -94,10 +94,10 @@ func (p par) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	return dydx, dydh
 }
 
-func (p par) NumHyperparameters() int {
+func (p par) NumWeights() int {
 	var sum int
 	for _, layer := range p.layers {
-		sum += layer.NumHyperparameters()
+		sum += layer.NumWeights()
 	}
 	return sum
 }

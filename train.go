@@ -37,8 +37,8 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 				if j != 0 {
 					input = upsilons[j-1]
 				}
-				hyperparameters := model.nodes[j].hyperparameters
-				dYdX, dYdH := model.nodes[j].layer.D(input, hyperparameters)
+				weights := model.nodes[j].weights
+				dYdX, dYdH := model.nodes[j].layer.D(input, weights)
 				// dYdH being nil is valid, meaning the Zero matrix
 				if dYdH == nil {
 					partial.v[j] = nil
@@ -70,7 +70,7 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 		if partials[i] == nil {
 			continue
 		}
-		hSlice := node.hyperparameters
+		hSlice := node.weights
 		h := mat.NewVecDense(len(hSlice), hSlice)
 		p := partials[i]
 		h.AddScaledVec(h, -alpha*meanLoss/sum, p)

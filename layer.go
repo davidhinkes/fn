@@ -12,5 +12,5 @@ type Layer interface {
 	// D returns the partial derivitives of the layer.
 	D(x mat.Vector, h []float64) (dYdX mat.Matrix, dYdH mat.Matrix)
 
-	NumHyperparameters() int
+	NumWeights() int
 }

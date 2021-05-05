@@ -29,6 +29,6 @@ func (s staticFunc) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	return m, nil
 }
 
-func (_ staticFunc) NumHyperparameters() int {
+func (_ staticFunc) NumWeights() int {
 	return 0
 }

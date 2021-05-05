@@ -23,7 +23,7 @@ func MakeBiasLayer(n int) fn.Layer {
 	return b
 }
 
-func (b bias) NumHyperparameters() int {
+func (b bias) NumWeights() int {
 	return b.n
 }
 

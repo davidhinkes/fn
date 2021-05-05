@@ -9,7 +9,7 @@ import (
 
 func TestParallel(t *testing.T) {
 	p := fn.Parallel(MakeScalarLayer(10), MakeScalarLayer(10), MakeScalarLayer(10))
-	if got, want := p.NumHyperparameters(), 30; got != want {
+	if got, want := p.NumWeights(), 30; got != want {
 		t.Errorf("got %v want %v", got, want)
 	}
 	h := make([]float64, 30)

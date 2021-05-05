@@ -46,6 +46,6 @@ func (p *perceptron) F(x mat.Vector, h []float64) mat.Vector {
 	return &ret
 }
 
-func (p *perceptron) NumHyperparameters() int {
+func (p *perceptron) NumWeights() int {
 	return p.inputs * p.outputs
 }
