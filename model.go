@@ -38,7 +38,7 @@ type storage struct {
 func (m Model) Marshal() ([]byte,error) {
 	var s storage 
 	for _,node := range m.nodes {
-		s.Weights = append(s.Weights, node.hyperparameters)
+		s.Weights = append(s.Weights, node.weights)
 	}
 	return yaml.Marshal(s)
 }
@@ -49,7 +49,7 @@ func (m Model) Unmarshal(bytes []byte) error {
 		return err
 	}
 	for i,node := range m.nodes {
-		a := node.hyperparameters
+		a := node.weights
 		b := s.Weights[i]
 		if len(a) != len(b) {log.Fatalf("Unmarshal: weights cardinality missmatch")}
 		copy(a,b)
