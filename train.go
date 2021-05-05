@@ -50,14 +50,14 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 			c <- partial
 		}(x, yHats[i])
 	}
-	var totalLoss float64
+	var meanLoss float64
 	partials := make([]*mat.VecDense, len(model.nodes))
 	for p := range c {
-		totalLoss += p.l / float64(n)
+		meanLoss += p.l / float64(n)
 		agg(partials, p.v, n)
 	}
 	if alpha == 0 {
-		return totalLoss
+		return meanLoss 
 	}
 	var sum float64
 	for _, p := range partials {
@@ -73,9 +73,9 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 		hSlice := node.hyperparameters
 		h := mat.NewVecDense(len(hSlice), hSlice)
 		p := partials[i]
-		h.AddScaledVec(h, -alpha*totalLoss/sum, p)
+		h.AddScaledVec(h, -alpha*meanLoss/sum, p)
 	}
-	return totalLoss
+	return meanLoss 
 }
 
 func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
