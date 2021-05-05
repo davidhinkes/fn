@@ -1,8 +1,11 @@
 package fn
 
 import (
+	"log"
+
 	"gonum.org/v1/gonum/mat"
 	"math/rand"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type Model struct {
@@ -26,6 +29,32 @@ func MakeModel(layers ...Layer) Model {
 		layer:   layer,
 		weights: random(layer.NumWeights()),
 	}
+}
+
+type storage struct {
+	Weights [][]float64
+}
+
+func (m Model) Marshal() ([]byte,error) {
+	var s storage 
+	for _,node := range m.nodes {
+		s.Weights = append(s.Weights, node.hyperparameters)
+	}
+	return yaml.Marshal(s)
+}
+
+func (m Model) Unmarshal(bytes []byte) error {
+	var s storage
+	if err := yaml.Unmarshal(bytes, &s); err != nil {
+		return err
+	}
+	for i,node := range m.nodes {
+		a := node.hyperparameters
+		b := s.Weights[i]
+		if len(a) != len(b) {log.Fatalf("Unmarshal: weights cardinality missmatch")}
+		copy(a,b)
+	}
+	return nil
 }
 
 func random(n int) []float64 {
