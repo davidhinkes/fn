@@ -11,10 +11,9 @@ type scalar struct {
 }
 
 func MakeScalarLayer(n int) fn.Layer {
-	s := scalar{
+	return scalar{
 		n: n,
 	}
-	return s
 }
 
 func (s scalar) NumWeights() int {
