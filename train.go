@@ -56,8 +56,10 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 		meanLoss += p.l / float64(n)
 		agg(partials, p.v, n)
 	}
-	if alpha == 0 {
-		return meanLoss 
+	if alpha == 0 || meanLoss == 0 {
+		// if alpha is zero, we don't want any learning
+		// if meanLoss is zero, there is nothing to learn
+		return meanLoss
 	}
 	var sum float64
 	for _, p := range partials {
@@ -75,7 +77,7 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 		p := partials[i]
 		h.AddScaledVec(h, -alpha*meanLoss/sum, p)
 	}
-	return meanLoss 
+	return meanLoss
 }
 
 func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
