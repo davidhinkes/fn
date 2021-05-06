@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fn-dev
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 0
+  template:
+    spec:
+      containers:
+      - name: fn-dev
+        image: gcr.io/enhanced-kit-571/fn-dev:latest
+        args: ["--max_time=1h"]
+      restartPolicy: Never
+
