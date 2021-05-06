@@ -10,7 +10,7 @@ type Model struct {
 }
 
 type node struct {
-	layer           Layer
+	layer   Layer
 	weights []float64
 }
 
@@ -30,7 +30,7 @@ func MakeModel(layers ...Layer) Model {
 	model := Model{}
 	for _, layer := range layers {
 		model.nodes = append(model.nodes, node{
-			layer:           layer,
+			layer:   layer,
 			weights: random(layer.NumWeights()),
 		})
 	}
