@@ -6,35 +6,24 @@ import (
 )
 
 type Model struct {
-	nodes []node
-}
-
-type node struct {
 	layer   Layer
 	weights []float64
 }
 
-func (m Model) Eval(x mat.Vector) (mat.Vector, []mat.Vector) {
-	var upsilons []mat.Vector
-	previousUpsilon := x
-	for _, node := range m.nodes {
-		u := node.layer.F(previousUpsilon, node.weights)
-		upsilons = append(upsilons, u)
-		previousUpsilon = u
-	}
-	return previousUpsilon, upsilons
+func (m Model) Eval(x mat.Vector) mat.Vector {
+	return m.layer.F(x, m.weights)
 }
 
 // MakeModel will return a Model from layers.
 func MakeModel(layers ...Layer) Model {
-	model := Model{}
-	for _, layer := range layers {
-		model.nodes = append(model.nodes, node{
-			layer:   layer,
-			weights: random(layer.NumWeights()),
-		})
+	if len(layers) != 1 {
+		return MakeModel(Serial(layers...))
 	}
-	return model
+	layer := layers[0]
+	return Model{
+		layer:   layer,
+		weights: random(layer.NumWeights()),
+	}
 }
 
 func random(n int) []float64 {

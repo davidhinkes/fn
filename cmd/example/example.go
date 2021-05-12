@@ -73,7 +73,7 @@ func main() {
 	}
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
-		y, _ := model.Eval(t)
+		y := model.Eval(t)
 		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
 	}
 }

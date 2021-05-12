@@ -7,8 +7,14 @@ import (
 // Parallel returns a single layer from multiple layers executed independently. Each layer's input
 // must be of the same cardinality. The output cardinality is the sum of the individual layer's outputs.
 func Parallel(layers ...Layer) Layer {
+	var n int
+	for _, l := range layers {
+		n += l.NumWeights()
+	}
+
 	return par{
-		layers: layers,
+		layers:     layers,
+		numWeights: n,
 	}
 }
 
@@ -22,7 +28,8 @@ func place(dst *mat.Dense, i int, j int, m mat.Matrix) {
 }
 
 type par struct {
-	layers []Layer
+	layers     []Layer
+	numWeights int
 }
 
 func (p par) weights(h []float64) [][]float64 {
@@ -95,9 +102,5 @@ func (p par) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 }
 
 func (p par) NumWeights() int {
-	var sum int
-	for _, layer := range p.layers {
-		sum += layer.NumWeights()
-	}
-	return sum
+	return p.numWeights
 }

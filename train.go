@@ -6,15 +6,14 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type partialDerivative struct {
-	v []mat.Vector
-	l float64
-}
-
 func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) float64 {
 	// c is the main channel for doing work. For each xs spawn a gothread
 	// that will push one item.
-	c := make(chan partialDerivative)
+	type tuple struct {
+		v mat.Vector
+		l float64
+	}
+	c := make(chan tuple)
 	wg := sync.WaitGroup{}
 	n := len(xs)
 	wg.Add(n)
@@ -26,57 +25,31 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 	for i, x := range xs {
 		go func(x mat.Vector, yHat mat.Vector) {
 			defer wg.Done()
-			y, upsilons := model.Eval(x)
+			y := model.Eval(x)
 			loss, dLossDyT := lossFunction.F(y, yHat)
-			partial := partialDerivative{
+			_, dYdW := model.layer.D(x, model.weights)
+			// dLdWT = (dLdY * dYdW)T
+			dLdWT := mulVec(mat.Transpose{dYdW}, dLossDyT)
+			c <- tuple{
 				l: loss,
-				v: make([]mat.Vector, len(model.nodes)),
+				v: dLdWT,
 			}
-			for j := len(model.nodes) - 1; j >= 0; j-- {
-				input := x
-				if j != 0 {
-					input = upsilons[j-1]
-				}
-				weights := model.nodes[j].weights
-				dYdX, dYdH := model.nodes[j].layer.D(input, weights)
-				// dYdH being nil is valid, meaning the Zero matrix
-				if dYdH == nil {
-					partial.v[j] = nil
-				} else {
-					partial.v[j] = mulVec(mat.Transpose{dYdH}, dLossDyT)
-				}
-				dLossDyT = mulVec(mat.Transpose{dYdX}, dLossDyT)
-			}
-			c <- partial
 		}(x, yHats[i])
 	}
 	var meanLoss float64
-	partials := make([]*mat.VecDense, len(model.nodes))
+	dLossdWT := mat.NewVecDense(model.layer.NumWeights(), nil)
 	for p := range c {
 		meanLoss += p.l / float64(n)
-		agg(partials, p.v, n)
+		dLossdWT.AddScaledVec(dLossdWT, 1./float64(n), p.v)
 	}
 	if alpha == 0 || meanLoss == 0 {
 		// if alpha is zero, we don't want any learning
 		// if meanLoss is zero, there is nothing to learn
 		return meanLoss
 	}
-	var sum float64
-	for _, p := range partials {
-		if p == nil {
-			continue
-		}
-		sum += mat.Dot(p, p)
-	}
-	for i, node := range model.nodes {
-		if partials[i] == nil {
-			continue
-		}
-		hSlice := node.weights
-		h := mat.NewVecDense(len(hSlice), hSlice)
-		p := partials[i]
-		h.AddScaledVec(h, -alpha*meanLoss/sum, p)
-	}
+	sum := mat.Dot(dLossdWT, dLossdWT)
+	w := mat.NewVecDense(len(model.weights), model.weights)
+	w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
 	return meanLoss
 }
 
@@ -84,18 +57,4 @@ func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
 	var ret mat.VecDense
 	ret.MulVec(m, v)
 	return &ret
-}
-
-func agg(ps []*mat.VecDense, vs []mat.Vector, n int) {
-	for i, p := range ps {
-		v := vs[i]
-		if v == nil {
-			continue
-		}
-		if p == nil {
-			ps[i] = mat.NewVecDense(v.Len(), nil)
-			p = ps[i]
-		}
-		p.AddScaledVec(p, 1./float64(n), v)
-	}
 }
