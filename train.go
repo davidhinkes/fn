@@ -6,7 +6,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) float64 {
+func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) float64 {
 	// c is the main channel for doing work. For each xs spawn a gothread
 	// that will push one item.
 	type tuple struct {
@@ -50,7 +50,14 @@ func Train(model Model, xs, yHats []mat.Vector, lossFunction LossFunction, alpha
 	sum := mat.Dot(dLossdWT, dLossdWT)
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
+	model.updateExample(xs[0])
 	return meanLoss
+}
+
+func (model *Model) updateExample(x mat.Vector) {
+	y := model.Eval(x)
+	model.exampleX = x
+	model.exampleY = y
 }
 
 func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {

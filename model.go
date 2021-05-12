@@ -6,8 +6,10 @@ import (
 )
 
 type Model struct {
-	layer   Layer
-	weights []float64
+	layer    Layer
+	weights  []float64
+	exampleX mat.Vector
+	exampleY mat.Vector
 }
 
 func (m Model) Eval(x mat.Vector) mat.Vector {

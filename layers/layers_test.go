@@ -26,7 +26,7 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	lossFunction := lossfunctions.NewSquaredError()
 	xs, ys := test.MakeExamples(truth, batchSize)
 	for time.Since(startTime) < durationSeconds*time.Second {
-		e = fn.Train(model, xs, ys, lossFunction, alpha)
+		e = model.Train(xs, ys, lossFunction, alpha)
 		if e == 0 {
 			break
 		}
