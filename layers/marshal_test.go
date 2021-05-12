@@ -19,7 +19,8 @@ func mkModel() fn.Model {
 }
 
 func TestMarshal(t *testing.T) {
-	out, err := mkModel().Marshal()
+	model := mkModel()
+	out, err := model.Marshal()
 	if err != nil {
 		t.Error(err)
 	}

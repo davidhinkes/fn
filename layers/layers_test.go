@@ -20,7 +20,7 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	const (
 		batchSize       = 2048
 		alpha           = 5e-2
-		durationSeconds = 15
+		durationSeconds = 10
 	)
 	var e float64
 	lossFunction := lossfunctions.NewSquaredError()
