@@ -42,18 +42,19 @@ func TestBiasLayer(t *testing.T) {
 }
 
 func TestPerceptronLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model{ return fn.MakeModel(MakePerceptronLayer(n, n)) }, identity{N: 8})
+	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakePerceptronLayer(n, n)) }, identity{N: 8})
 }
 
 func TestScalarLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model{ return fn.MakeModel(MakeScalarLayer(n)) }, identity{N: 64})
+	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakeScalarLayer(n)) }, identity{N: 64})
 }
 
 func TestStaticFuncLayer(t *testing.T) {
-	f := func(x float64) float64 { return -2*x }
+	f := func(x float64) float64 { return -2 * x }
 	d := func(x float64) float64 { return -2 }
-	testLayer(t, func(n int) fn.Model{
-		return fn.MakeModel(MakePerceptronLayer(n, n), staticFunc{f: f, d: d}) },
+	testLayer(t, func(n int) fn.Model {
+		return fn.MakeModel(MakePerceptronLayer(n, n), staticFunc{f: f, d: d})
+	},
 		identity{N: 8})
 }
 
