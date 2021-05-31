@@ -12,9 +12,13 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
+	"context"
 
 	"gonum.org/v1/gonum/mat"
+
+	"cloud.google.com/go/storage"
 
 	_ "net/http/pprof"
 )
@@ -30,6 +34,8 @@ var (
 	batchSize        = flag.Int("batch_size", 128, "batch size")
 	trainingExamples = flag.Int("training_examples", 1024, "")
 	alpha            = flag.Float64("alpha", 5e-2, "alpha")
+	storageURI       = flag.String("storage_uri", "", "")
+	gsRegexp         = regexp.MustCompile(`^gs:\/\/([^\/]*)\/(.*)$`)
 )
 
 func port() string {
@@ -40,8 +46,33 @@ func port() string {
 	return env
 }
 
+func writeStorage(ctx context.Context, uri string, model fn.Model) error {
+	if uri == "" {
+		return nil
+	}
+	blob, err := model.Marshal()
+	if err != nil {
+		return err
+	}
+	parts := gsRegexp.FindStringSubmatch(uri)
+	if len(parts) != 3 {
+		return fmt.Errorf("gs uri decode fail: %s, parts: %v", uri, parts)
+	}
+	bucketName, objectName := parts[1], parts[2]
+	c, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	w := c.Bucket(bucketName).Object(objectName).NewWriter(ctx)
+	defer w.Close()
+	_, err = w.Write(blob)
+	return err
+}
+
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
@@ -75,6 +106,9 @@ func main() {
 	for _, t := range tests {
 		y := model.Eval(t)
 		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
+	}
+	if err := writeStorage(ctx, *storageURI, model); err != nil {
+		log.Fatal(err)
 	}
 }
 
