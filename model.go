@@ -1,19 +1,17 @@
 package fn
 
 import (
+	"fmt"
 	"log"
-	"errors"
 
 	"gonum.org/v1/gonum/mat"
-	"math/rand"
 	yaml "gopkg.in/yaml.v2"
+	"math/rand"
 )
 
 type Model struct {
-	layer    Layer
-	weights  []float64
-	exampleX mat.Vector
-	exampleY mat.Vector
+	layer   Layer
+	weights []float64
 }
 
 func (m Model) Eval(x mat.Vector) mat.Vector {
@@ -33,16 +31,21 @@ func MakeModel(layers ...Layer) Model {
 }
 
 type storage struct {
-	Weights []float64
+	Weights  []float64
 	ExampleX []float64
 	ExampleY []float64
 }
 
-func (m *Model) Marshal() ([]byte,error) {
-	s := storage {
+// Marshal marshals the Model. Variable x is an example input vector
+// that is used to make a checksum-like mechanism to verify the integrity
+// of a Model.
+func (m *Model) Marshal(x mat.Vector) ([]byte, error) {
+	s := storage{
 		Weights: m.weights,
-		ExampleX: toSlice(m.exampleX),
-		ExampleY: toSlice(m.exampleY),
+	}
+	if x != nil {
+		s.ExampleX = toSlice(x)
+		s.ExampleY = toSlice(m.Eval(x))
 	}
 	return yaml.Marshal(s)
 }
@@ -70,24 +73,22 @@ func (m *Model) Unmarshal(bytes []byte) error {
 	if err := yaml.Unmarshal(bytes, &s); err != nil {
 		return err
 	}
-	a,b := m.weights, s.Weights
-	if len(a) != len(b) {log.Fatalf("Unmarshal: weights cardinality missmatch")}
-	copy(a,b)
-	m.exampleX = toVec(s.ExampleX)
-	m.exampleY = toVec(s.ExampleY)
-	return m.testExample()
-}
-
-func (m *Model) testExample() error {
-	if m.exampleX == nil {
-		// nothing to test
+	a, b := m.weights, s.Weights
+	if len(a) != len(b) {
+		log.Fatalf("Unmarshal: weights cardinality missmatch")
+	}
+	copy(a, b)
+	if s.ExampleX == nil {
 		return nil
 	}
-	y := m.Eval(m.exampleX)
+	return m.testExample(toVec(s.ExampleY), toVec(s.ExampleY))
+}
+
+func (m *Model) testExample(x, y mat.Vector) error {
 	var e mat.VecDense
-	e.SubVec(y,m.exampleY)
-	if mat.Dot(&e,&e) != 0 {
-		return errors.New("examples do not match. The Model is not compatible with the supplied weights.")
+	e.SubVec(y, m.Eval(x))
+	if s := mat.Dot(&e, &e); s != 0 {
+		return fmt.Errorf("examples do not match; The Model is not compatible with the supplied weights. (squared error=%v)", s)
 	}
 	return nil
 }

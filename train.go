@@ -50,14 +50,7 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 	sum := mat.Dot(dLossdWT, dLossdWT)
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
-	model.updateExample(xs[0])
 	return meanLoss
-}
-
-func (model *Model) updateExample(x mat.Vector) {
-	y := model.Eval(x)
-	model.exampleX = x
-	model.exampleY = y
 }
 
 func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
