@@ -46,13 +46,9 @@ func port() string {
 	return env
 }
 
-func writeStorage(ctx context.Context, uri string, model fn.Model) error {
+func writeStorage(ctx context.Context, uri string, blob []byte) error {
 	if uri == "" {
 		return nil
-	}
-	blob, err := model.Marshal()
-	if err != nil {
-		return err
 	}
 	parts := gsRegexp.FindStringSubmatch(uri)
 	if len(parts) != 3 {
@@ -107,7 +103,12 @@ func main() {
 		y := model.Eval(t)
 		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
 	}
-	if err := writeStorage(ctx, *storageURI, model); err != nil {
+
+	blob, err := model.Marshal(tests[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := writeStorage(ctx, *storageURI, blob); err != nil {
 		log.Fatal(err)
 	}
 }
