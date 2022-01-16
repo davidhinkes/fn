@@ -1,17 +1,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: fn-dev
+  name: fn-example
 spec:
-  completions: 1
-  parallelism: 1
-  backoffLimit: 4
-  ttlSecondsAfterFinished: 0
   template:
     spec:
-      containers:
-      - name: fn-dev
-        image: gcr.io/enhanced-kit-571/fn-dev:latest
-        args: ["--max_time=1h"]
       restartPolicy: Never
-
+      containers:
+      - name: fn
+        image: gcr.io/enhanced-kit-571/fn-dev:latest
+        args: ["--max_time=3m", "--batch_size=16", "--storage_uri", "gs://hinkes_dev/model-k8s.yaml"]
