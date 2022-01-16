@@ -96,7 +96,7 @@ func main() {
 		iterations := i - lastLogUpdateIteration
 		lastLogUpdateIteration = i
 		e = model.Train(vxs, vys, lossFunction, 0)
-		fmt.Printf("loss: %e  iterations: %v\t\t\r", e, iterations)
+		log.Printf("loss: %e  iterations: %v", e, iterations)
 	}
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
