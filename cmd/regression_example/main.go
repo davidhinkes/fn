@@ -6,6 +6,7 @@ import (
 	"fn/lossfunctions"
 	"fn/test"
 
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -15,7 +16,6 @@ import (
 	"os"
 	"regexp"
 	"time"
-	"context"
 
 	"gonum.org/v1/gonum/mat"
 
@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	K     = 1
+	K = 1
 )
 
 var (
@@ -117,19 +117,19 @@ func main() {
 type euclidian struct {
 }
 
-func (e euclidian) Dims() (int,int) {
-	return 2,1
+func (e euclidian) Dims() (int, int) {
+	return 2, 1
 }
 
 func (e euclidian) F(dst *mat.VecDense, x mat.Vector) {
-	dst.SetVec(0, math.Sqrt(mat.Dot(x,x)))
+	dst.SetVec(0, math.Sqrt(mat.Dot(x, x)))
 }
 
 func (e euclidian) Rand(dst *mat.VecDense) {
 	dst.Zero()
 	n, _ := e.Dims()
 	for i := 0; i < n; i++ {
-		dst.SetVec(i, 1000 * (rand.Float64()-0.5))
+		dst.SetVec(i, 1000*(rand.Float64()-0.5))
 	}
 }
 

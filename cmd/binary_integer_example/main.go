@@ -6,6 +6,7 @@ import (
 	"fn/lossfunctions"
 	"fn/test"
 
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -14,7 +15,6 @@ import (
 	"os"
 	"regexp"
 	"time"
-	"context"
 
 	"gonum.org/v1/gonum/mat"
 
