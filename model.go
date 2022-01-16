@@ -78,10 +78,10 @@ func (m *Model) Unmarshal(bytes []byte) error {
 		log.Fatalf("Unmarshal: weights cardinality missmatch")
 	}
 	copy(a, b)
-	if s.ExampleX == nil {
+	if len(s.ExampleX) == 0 {
 		return nil
 	}
-	return m.testExample(toVec(s.ExampleY), toVec(s.ExampleY))
+	return m.testExample(toVec(s.ExampleX), toVec(s.ExampleY))
 }
 
 func (m *Model) testExample(x, y mat.Vector) error {

@@ -20,7 +20,7 @@ func mkModel() fn.Model {
 
 func TestMarshal(t *testing.T) {
 	model := mkModel()
-	out, err := model.Marshal()
+	out, err := model.Marshal(nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -28,7 +28,7 @@ func TestMarshal(t *testing.T) {
 	if err := m.Unmarshal(out); err != nil {
 		t.Error(err)
 	}
-	out2, err := m.Marshal()
+	out2, err := m.Marshal(nil)
 	if err != nil {
 		t.Error(err)
 	}
