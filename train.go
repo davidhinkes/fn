@@ -47,9 +47,10 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 		// if meanLoss is zero, there is nothing to learn
 		return meanLoss
 	}
-	sum := mat.Dot(dLossdWT, dLossdWT)
+	//sum := mat.Dot(dLossdWT, dLossdWT)
 	w := mat.NewVecDense(len(model.weights), model.weights)
-	w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
+	//w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
+	w.AddScaledVec(w, -alpha, dLossdWT)
 	return meanLoss
 }
 
