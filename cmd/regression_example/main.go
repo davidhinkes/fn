@@ -6,15 +6,16 @@ import (
 	"fn/lossfunctions"
 	"fn/test"
 
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
 	"time"
-	"context"
 
 	"gonum.org/v1/gonum/mat"
 
@@ -24,8 +25,7 @@ import (
 )
 
 const (
-	K     = 32
-	KLog2 = 5
+	K = 1
 )
 
 var (
@@ -72,12 +72,13 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
+	truth := euclidian{}
+	inputCardinality, outputCardinality := truth.Dims()
 	model := fn.MakeModel(
-		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(),
-		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(), layers.MakeScalarLayer(K),
+		layers.MakeRadialLayer(inputCardinality, K),
+		layers.MakePerceptronLayer(K, outputCardinality), layers.MakeBiasLayer(outputCardinality),
 	)
 	lossFunction := lossfunctions.NewSquaredError()
-	truth := oneHot{Cardinality: K}
 	vxs, vys := test.MakeExamples(truth, *trainingExamples)
 	lastLogUpdateTime := time.Now()
 	lastLogUpdateIteration := 0
@@ -96,7 +97,7 @@ func main() {
 		iterations := i - lastLogUpdateIteration
 		lastLogUpdateIteration = i
 		e = model.Train(vxs, vys, lossFunction, 0)
-		fmt.Printf("loss: %e  iterations: %v\t\t\r", e, iterations)
+		log.Printf("loss: %e  iterations: %v", e, iterations)
 	}
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
@@ -113,21 +114,23 @@ func main() {
 	}
 }
 
-type oneHot struct {
-	Cardinality int
+type euclidian struct {
 }
 
-var _ test.Truth = oneHot{}
-
-func (o oneHot) Dims() (int, int) {
-	return o.Cardinality, o.Cardinality
+func (e euclidian) Dims() (int, int) {
+	return 2, 1
 }
 
-func (o oneHot) F(dst *mat.VecDense, x mat.Vector) {
-	dst.CloneFromVec(x)
+func (e euclidian) F(dst *mat.VecDense, x mat.Vector) {
+	dst.SetVec(0, math.Sqrt(mat.Dot(x, x)))
 }
 
-func (o oneHot) Rand(dst *mat.VecDense) {
+func (e euclidian) Rand(dst *mat.VecDense) {
 	dst.Zero()
-	dst.SetVec(rand.Int()%o.Cardinality, 1.0)
+	n, _ := e.Dims()
+	for i := 0; i < n; i++ {
+		dst.SetVec(i, 1000*(rand.Float64()-0.5))
+	}
 }
+
+var _ test.Truth = euclidian{}
