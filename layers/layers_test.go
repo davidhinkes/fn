@@ -18,7 +18,7 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	model := mkModel(n)
 	startTime := time.Now()
 	const (
-		batchSize       = 2048
+		batchSize       = 16
 		alpha           = 5e-2
 		durationSeconds = 10
 	)
@@ -27,14 +27,12 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	xs, ys := test.MakeExamples(truth, batchSize)
 	for time.Since(startTime) < durationSeconds*time.Second {
 		e = model.Train(xs, ys, lossFunction, alpha)
-		if e == 0 {
-			break
+		if e < 1e-10 {
+			return
 		}
 	}
 	t.Logf("%s error=%v", t.Name(), e)
-	if e > 1e-4 {
-		t.Errorf("error rate too high (e=%v)", e)
-	}
+	t.Errorf("error rate too high (e=%v)", e)
 }
 
 func TestBiasLayer(t *testing.T) {
@@ -42,7 +40,7 @@ func TestBiasLayer(t *testing.T) {
 }
 
 func TestPerceptronLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakePerceptronLayer(n, n)) }, identity{N: 8})
+	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakePerceptronLayer(n, n)) }, identity{N: 64})
 }
 
 func TestScalarLayer(t *testing.T) {
