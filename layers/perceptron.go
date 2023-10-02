@@ -18,11 +18,6 @@ type perceptron struct {
 	outputs int
 }
 
-func (p *perceptron) dim(x int) (int, int) {
-	c := p.inputs
-	return x / c, x % c
-}
-
 func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 	return mat.NewDense(p.outputs, p.inputs, h)
 }
@@ -30,13 +25,14 @@ func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 func (p *perceptron) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	w := p.mkWeights(h)
 	dYdH := mat.NewDense(p.outputs, len(h), nil)
-	dYdH.Apply(func(i, j int, _ float64) float64 {
-		l, m := p.dim(j)
-		if i != l {
-			return 0
+	dYdH.Zero() // This is perhaps not needed, but I feel better.
+	rows, columns := w.Dims()
+	for i := 0; i < rows; i++ {
+		for j := 0; j < columns; j++ {
+			// assumption of row-major layout of h & w
+			dYdH.Set(i, columns * i + j, x.AtVec(j))
 		}
-		return x.AtVec(m)
-	}, dYdH)
+	}
 	return w, dYdH
 }
 
