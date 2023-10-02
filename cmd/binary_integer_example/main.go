@@ -31,7 +31,7 @@ const (
 var (
 	logUpdatePeriod  = flag.Duration("log_update_period", 1*time.Second, "time between update")
 	maxTime          = flag.Duration("max_time", 3*time.Minute, "how long should we crunch on the data?")
-	batchSize        = flag.Int("batch_size", 128, "batch size")
+	batchSize        = flag.Int("batch_size", 32, "batch size")
 	trainingExamples = flag.Int("training_examples", 1024, "")
 	alpha            = flag.Float64("alpha", 5e-2, "alpha")
 	storageURI       = flag.String("storage_uri", "", "")
@@ -74,30 +74,21 @@ func main() {
 	}()
 	model := fn.MakeModel(
 		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(),
-		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(), layers.MakeScalarLayer(K),
+		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(),
 	)
-	lossFunction := lossfunctions.NewSquaredError()
-	truth := oneHot{Cardinality: K}
-	vxs, vys := test.MakeExamples(truth, *trainingExamples)
-	lastLogUpdateTime := time.Now()
-	lastLogUpdateIteration := 0
-	startTime := lastLogUpdateTime
-	for i := 0; ; i++ {
-		xs, ys := test.MakeExamples(truth, *batchSize)
-		e := model.Train(xs, ys, lossFunction, *alpha)
-		if time.Since(startTime) > *maxTime {
-			break
-		}
-		deltaTime := time.Since(lastLogUpdateTime)
-		if deltaTime < *logUpdatePeriod {
-			continue
-		}
-		lastLogUpdateTime = time.Now()
-		iterations := i - lastLogUpdateIteration
-		lastLogUpdateIteration = i
-		e = model.Train(vxs, vys, lossFunction, 0)
-		log.Printf("loss: %e  iterations: %v", e, iterations)
+	opts := fn.TrainOptions{
+		Alpha: *alpha,
+		TrainDuration: *maxTime,
+		BatchSize: *batchSize,
+		LossFunction: lossfunctions.NewSquaredError(),
+		StatusDuration: *logUpdatePeriod,
 	}
+	truth := oneHot{Cardinality: K}
+	xs, ys := test.MakeExamples(truth, *trainingExamples)
+	model.TrainBatch(xs, ys, opts, func(i int, e float64){
+		log.Printf("loss: %e  iterations: %v", e, i)
+	})
+
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
 		y := model.Eval(t)
