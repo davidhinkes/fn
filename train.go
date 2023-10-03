@@ -31,7 +31,7 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			loss, dLossDyT := lossFunction.F(y, yHat)
 			_, dYdW := model.layer.D(x, model.weights)
 			// dLdWT = (dLdY * dYdW)T
-			dLdWT := mulVec(mat.Transpose{dYdW}, dLossDyT)
+			dLdWT := mulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
 			c <- tuple{
 				l: loss,
 				v: dLdWT,
