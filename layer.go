@@ -9,7 +9,7 @@ type Layer interface {
 	// |return| = |y|
 	F(x mat.Vector, h []float64) mat.Vector
 
-	// D returns the partial derivitives of the layer.
+	// D returns the partial derivatives of the layer.
 	D(x mat.Vector, h []float64) (dYdX mat.Matrix, dYdH mat.Matrix)
 
 	NumWeights() int
