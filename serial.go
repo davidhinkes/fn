@@ -5,6 +5,7 @@ import (
 )
 
 // Serial returns a single layer from multiple layers executed one after another.
+// TODO: I bet we can re-think this to be recursive. This would be quite elegant and simple.
 func Serial(layers ...Layer) Layer {
 	var n int
 	for _, l := range layers {
