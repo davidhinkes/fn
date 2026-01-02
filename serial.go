@@ -32,25 +32,25 @@ func (s ser2) F(x mat.Vector, h []float64) mat.Vector {
 
 func (s ser2) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	n := s.left.NumWeights()
-	dYdX, dYdAleph := s.left.D(x, h[:n])
+	dYdX, dYdℵ := s.left.D(x, h[:n])
 	y := s.left.F(x, h[:n])
-	dZdY, dZdBet := s.right.D(y, h[n:])
+	dZdY, dZdℶ := s.right.D(y, h[n:])
 	var dZdX mat.Dense
 	dZdX.Mul(dZdY, dYdX)
-	// it's possible that dZdAleph and/or dZdBet are nil
-	if dYdAleph == nil && dZdBet == nil {
+	// it's possible that dZdℵ and/or dZdℶ are nil
+	if dYdℵ == nil && dZdℶ == nil {
 		return &dZdX, nil
 	}
-	if dYdAleph == nil {
-		return &dZdX, dZdBet
+	if dYdℵ == nil {
+		return &dZdX, dZdℶ
 	}
-	var dZdAleph mat.Dense
-	dZdAleph.Mul(dZdY, dYdAleph)
-	if dZdBet == nil {
-		return &dZdX, &dZdAleph
+	var dZdℵ mat.Dense
+	dZdℵ.Mul(dZdY, dYdℵ)
+	if dZdℶ == nil {
+		return &dZdX, &dZdℵ
 	}
 	var dZdH mat.Dense
-	dZdH.Augment(&dZdAleph, dZdBet)
+	dZdH.Augment(&dZdℵ, dZdℶ)
 
 	return &dZdX, &dZdH
 }
