@@ -20,10 +20,8 @@ func (m Model) Eval(x mat.Vector) mat.Vector {
 
 // MakeModel will return a Model from layers.
 func MakeModel(layers ...Layer) Model {
-	if len(layers) != 1 {
-		return MakeModel(Serial(layers...))
-	}
-	layer := layers[0]
+	// combine into a single layer
+	layer := Serial(layers...)
 	return Model{
 		layer:   layer,
 		weights: random(layer.NumWeights()),
