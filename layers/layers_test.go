@@ -36,15 +36,21 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 }
 
 func TestBiasLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakeBiasLayer(n)) }, identity{N: 64})
+	testLayer(t, func(n int) fn.Model {
+		return fn.MakeModel(MakeBiasLayer(n))
+	}, identity{N: 64})
 }
 
 func TestPerceptronLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakePerceptronLayer(n, n)) }, identity{N: 64})
+	testLayer(t, func(n int) fn.Model {
+		return fn.MakeModel(MakePerceptronLayer(n, n))
+	}, identity{N: 64})
 }
 
 func TestScalarLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model { return fn.MakeModel(MakeScalarLayer(n)) }, identity{N: 64})
+	testLayer(t, func(n int) fn.Model {
+		return fn.MakeModel(MakeScalarLayer(n))
+	}, identity{N: 64})
 }
 
 func TestStaticFuncLayer(t *testing.T) {

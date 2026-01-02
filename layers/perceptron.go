@@ -30,7 +30,7 @@ func (p *perceptron) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	for i := 0; i < rows; i++ {
 		for j := 0; j < columns; j++ {
 			// assumption of row-major layout of h & w
-			dYdH.Set(i, columns * i + j, x.AtVec(j))
+			dYdH.Set(i, columns*i+j, x.AtVec(j))
 		}
 	}
 	return w, dYdH
