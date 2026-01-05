@@ -41,7 +41,7 @@ func (s serialNode) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	// want: dZdX, and dZdH
 	// dZdH = [dZdℵ, dZdℶ]
 	// dZdℵ = dZdY * dYdℵ (matrix multiplication)
-	// dZdX = dZdY * dYdX
+	// dZdX = dZdY * dYdX (matrix multiplication)
 	n := s.left.NumWeights()
 	dYdX, dYdℵ := s.left.D(x, h[:n])
 	y := s.left.F(x, h[:n])
