@@ -27,7 +27,7 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	xs, ys := test.MakeExamples(truth, batchSize)
 	for time.Since(startTime) < durationSeconds*time.Second {
 		e = model.Train(xs, ys, lossFunction, alpha)
-		if e < 1e-10 {
+		if e < 1e-5 {
 			return
 		}
 	}

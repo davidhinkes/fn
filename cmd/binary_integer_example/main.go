@@ -77,15 +77,15 @@ func main() {
 		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(),
 	)
 	opts := fn.TrainOptions{
-		Alpha: *alpha,
-		TrainDuration: *maxTime,
-		BatchSize: *batchSize,
-		LossFunction: lossfunctions.NewSquaredError(),
+		Alpha:          *alpha,
+		TrainDuration:  *maxTime,
+		BatchSize:      *batchSize,
+		LossFunction:   lossfunctions.NewSquaredError(),
 		StatusDuration: *logUpdatePeriod,
 	}
 	truth := oneHot{Cardinality: K}
 	xs, ys := test.MakeExamples(truth, *trainingExamples)
-	model.TrainBatch(xs, ys, opts, func(i int, e float64){
+	model.TrainBatch(xs, ys, opts, func(i int, e float64) {
 		log.Printf("loss: %e  iterations: %v", e, i)
 	})
 
