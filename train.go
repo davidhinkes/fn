@@ -31,35 +31,30 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			loss, dLossDyT := lossFunction.F(y, yHat)
 			_, dYdW := model.layer.D(x, model.weights)
 			// dLdWT = (dLdY * dYdW)T
-			dLdWT := mulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
+			var dLdWT mat.VecDense
+			dLdWT.MulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
 			c <- tuple{
 				l: loss,
-				v: dLdWT,
+				v: &dLdWT,
 			}
 		}(x, yHats[i])
 	}
-	var meanLoss float64
+	var loss float64
 	dLossdWT := mat.NewVecDense(model.layer.NumWeights(), nil)
 	for p := range c {
-		meanLoss += p.l / float64(n)
-		dLossdWT.AddScaledVec(dLossdWT, 1./float64(n), p.v)
+		loss += p.l
+		dLossdWT.AddVec(dLossdWT, p.v)
 	}
-	if alpha == 0 || meanLoss == 0 {
+	if alpha == 0 || loss == 0 {
 		// if alpha is zero, we don't want any learning
-		// if meanLoss is zero, there is nothing to learn
-		return meanLoss
+		// if loss is zero, there is nothing to learn
+		return loss
 	}
-	//sum := mat.Dot(dLossdWT, dLossdWT)
 	w := mat.NewVecDense(len(model.weights), model.weights)
-	//w.AddScaledVec(w, -alpha*meanLoss/sum, dLossdWT)
+	dLossdWT.ScaleVec(1./float64(n), dLossdWT)
+	meanLoss := loss / float64(n)
 	w.AddScaledVec(w, -alpha, dLossdWT)
 	return meanLoss
-}
-
-func mulVec(m mat.Matrix, v mat.Vector) mat.Vector {
-	var ret mat.VecDense
-	ret.MulVec(m, v)
-	return &ret
 }
 
 type TrainOptions struct {

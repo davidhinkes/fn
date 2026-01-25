@@ -12,13 +12,13 @@ type bias struct {
 }
 
 func MakeBiasLayer(n int) fn.Layer {
-	ident := mat.NewDiagDense(n, nil)
-	for i := 0; i < n; i++ {
-		ident.SetDiag(i, 1.0)
+	ident := make([]float64, n)
+	for i := range ident {
+		ident[i] = 1.
 	}
 	b := bias{
 		n:        n,
-		identity: ident,
+		identity: diagFromSlice(ident),
 	}
 	return b
 }

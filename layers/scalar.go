@@ -27,5 +27,5 @@ func (s scalar) F(x mat.Vector, h []float64) mat.Vector {
 }
 
 func (s scalar) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
-	return mat.NewDiagDense(len(h), h), diag(x)
+	return diagFromSlice(h), diag(x)
 }

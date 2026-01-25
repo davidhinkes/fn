@@ -74,7 +74,7 @@ func main() {
 	}()
 	model := fn.MakeModel(
 		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(),
-		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K), layers.MakeSigmoid(),
+		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K),
 	)
 	opts := fn.TrainOptions{
 		Alpha:          *alpha,

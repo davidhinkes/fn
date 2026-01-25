@@ -20,13 +20,12 @@ func (s staticFunc) F(x mat.Vector, _ []float64) mat.Vector {
 	return mat.NewVecDense(len(y), y)
 }
 
-func (s staticFunc) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
-	n := x.Len()
-	m := mat.NewDiagDense(n, nil)
-	for i := 0; i < n; i++ {
-		m.SetDiag(i, s.d(x.AtVec(i)))
+func (s staticFunc) D(x mat.Vector, _ []float64) (mat.Matrix, mat.Matrix) {
+	v := make([]float64, x.Len())
+	for i := range v {
+		v[i] = s.d(x.AtVec(i))
 	}
-	return m, nil
+	return diagFromSlice(v), nil
 }
 
 func (_ staticFunc) NumWeights() int {

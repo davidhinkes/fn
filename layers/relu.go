@@ -1,8 +1,9 @@
 package layers
 
 import (
-	"fn"
 	"math"
+
+	"fn"
 )
 
 func MakeRelu() fn.Layer {
