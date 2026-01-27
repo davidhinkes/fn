@@ -72,7 +72,7 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
-	truth := euclidian{}
+	truth := euclidean{}
 	inputCardinality, outputCardinality := truth.Dims()
 	model := fn.MakeModel(
 		layers.MakeRadialLayer(inputCardinality, K),
@@ -85,7 +85,7 @@ func main() {
 	startTime := lastLogUpdateTime
 	for i := 0; ; i++ {
 		xs, ys := test.MakeExamples(truth, *batchSize)
-		e := model.Train(xs, ys, lossFunction, *alpha)
+		e,_ := model.Train(xs, ys, lossFunction, *alpha)
 		if time.Since(startTime) > *maxTime {
 			break
 		}
@@ -96,7 +96,7 @@ func main() {
 		lastLogUpdateTime = time.Now()
 		iterations := i - lastLogUpdateIteration
 		lastLogUpdateIteration = i
-		e = model.Train(vxs, vys, lossFunction, 0)
+		e,_ = model.Train(vxs, vys, lossFunction, 0)
 		log.Printf("loss: %e  iterations: %v", e, iterations)
 	}
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
@@ -114,18 +114,18 @@ func main() {
 	}
 }
 
-type euclidian struct {
+type euclidean struct {
 }
 
-func (e euclidian) Dims() (int, int) {
+func (e euclidean) Dims() (int, int) {
 	return 2, 1
 }
 
-func (e euclidian) F(dst *mat.VecDense, x mat.Vector) {
+func (e euclidean) F(dst *mat.VecDense, x mat.Vector) {
 	dst.SetVec(0, math.Sqrt(mat.Dot(x, x)))
 }
 
-func (e euclidian) Rand(dst *mat.VecDense) {
+func (e euclidean) Rand(dst *mat.VecDense) {
 	dst.Zero()
 	n, _ := e.Dims()
 	for i := 0; i < n; i++ {
@@ -133,4 +133,4 @@ func (e euclidian) Rand(dst *mat.VecDense) {
 	}
 }
 
-var _ test.Truth = euclidian{}
+var _ test.Truth = euclidean{}

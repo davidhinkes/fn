@@ -8,7 +8,7 @@ import (
 
 func TestVectorAssumptions(t *testing.T) {
 	// See if the NewVecDense slice is really the underlying data
-	// struct and mutations to either are equivlent.
+	// struct and mutations to either are equivalent.
 	underlying := []float64{0}
 	v := mat.NewVecDense(1, underlying)
 	underlying[0] = 1

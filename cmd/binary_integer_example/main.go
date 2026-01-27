@@ -85,8 +85,8 @@ func main() {
 	}
 	truth := oneHot{Cardinality: K}
 	xs, ys := test.MakeExamples(truth, *trainingExamples)
-	model.TrainBatch(xs, ys, opts, func(i int, e float64) {
-		log.Printf("loss: %e  iterations: %v", e, i)
+	model.TrainBatch(xs, ys, opts, func(i int, e float64, g float64) {
+		log.Printf("loss: %e  iterations: %v gradient-norm: %v", e, i, g)
 	})
 
 	tests, _ := test.MakeExamples(truth, *trainingExamples)

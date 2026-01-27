@@ -8,8 +8,8 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) float64 {
-	// c is the main channel for doing work. For each xs spawn a gothread
+func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) (float64, float64) {
+	// c is the main channel for doing work. For each xs spawn a goroutine
 	// that will push one item.
 	type tuple struct {
 		v mat.Vector
@@ -45,16 +45,17 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 		loss += p.l
 		dLossdWT.AddVec(dLossdWT, p.v)
 	}
-	if alpha == 0 || loss == 0 {
-		// if alpha is zero, we don't want any learning
-		// if loss is zero, there is nothing to learn
-		return loss
-	}
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	dLossdWT.ScaleVec(1./float64(n), dLossdWT)
 	meanLoss := loss / float64(n)
+	gradientNorm := mat.Norm(dLossdWT, 2)
+	if alpha == 0 || meanLoss == 0 {
+		// if alpha is zero, we don't want any learning
+		// if loss is zero, there is nothing to learn
+		return meanLoss, gradientNorm
+	}
 	w.AddScaledVec(w, -alpha, dLossdWT)
-	return meanLoss
+	return meanLoss, gradientNorm
 }
 
 type TrainOptions struct {
@@ -68,7 +69,7 @@ type TrainOptions struct {
 // TrainBatch
 // This is not a function of Model to convey the user shouldn't be using m while this is running.
 // An alternative idea is to have the user provide a function callback. IMO, use of channels is cleaner.
-func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, float64)) float64 {
+func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, float64, float64)) float64 {
 	if a, b := len(xs), len(ys); a != b {
 		log.Fatalf("expecting sizes of xs & yHats to be equal; got %v, %v", a, b)
 	}
@@ -76,15 +77,16 @@ func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, f
 	lastStatusCallIteration := 0
 	startTime := lastStatusCallTime
 	var e float64
+	var gradientNorm float64
 	for i := 0; time.Since(startTime) < opts.TrainDuration; i++ {
 		bxs := batch(xs, opts.BatchSize, i)
 		bys := batch(ys, opts.BatchSize, i)
 
-		e = m.Train(bxs, bys, opts.LossFunction, opts.Alpha)
+		e, gradientNorm = m.Train(bxs, bys, opts.LossFunction, opts.Alpha)
 		if time.Since(lastStatusCallTime) < opts.StatusDuration {
 			continue
 		}
-		f(i-lastStatusCallIteration, e)
+		f(i-lastStatusCallIteration, e, gradientNorm)
 		lastStatusCallIteration = i
 		lastStatusCallTime = time.Now()
 	}

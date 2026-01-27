@@ -1,4 +1,4 @@
-// Package test has utlities for testing functional networks.
+// Package test has utilities for testing functional networks.
 package test
 
 import (
@@ -6,7 +6,7 @@ import (
 )
 
 type Truth interface {
-	// Dims returns the function's dimentions: (input cardinality, output cardinality)
+	// Dims returns the function's dimensions: (input cardinality, output cardinality)
 	Dims() (int, int)
 	F(dst *mat.VecDense, x mat.Vector)
 	Rand(dst *mat.VecDense)
