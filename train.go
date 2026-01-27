@@ -66,7 +66,7 @@ type TrainOptions struct {
 }
 
 // TrainBatch
-// This is not a funtion of Model to convey the user shouldn't be using m while this is running.
+// This is not a function of Model to convey the user shouldn't be using m while this is running.
 // An alternative idea is to have the user provide a function callback. IMO, use of channels is cleaner.
 func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, float64)) float64 {
 	if a, b := len(xs), len(ys); a != b {

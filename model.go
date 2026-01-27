@@ -73,7 +73,7 @@ func (m *Model) Unmarshal(bytes []byte) error {
 	}
 	a, b := m.weights, s.Weights
 	if len(a) != len(b) {
-		log.Fatalf("Unmarshal: weights cardinality missmatch")
+		log.Fatalf("Unmarshal: weights cardinality mismatch")
 	}
 	copy(a, b)
 	if len(s.ExampleX) == 0 {
