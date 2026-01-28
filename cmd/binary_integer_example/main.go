@@ -85,9 +85,12 @@ func main() {
 	}
 	truth := oneHot{Cardinality: K}
 	xs, ys := test.MakeExamples(truth, *trainingExamples)
+	spinners := []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 	model.TrainBatch(xs, ys, opts, func(i int, e float64, g float64) {
-		log.Printf("loss: %e  iterations: %v gradient-norm: %v", e, i, g)
+		spinner := spinners[i%len(spinners)]
+		fmt.Printf("\r%c Training: iter=%d loss=%.6e grad=%.6e", spinner, i, e, g)
 	})
+	fmt.Println() // New line after training completes
 
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
