@@ -16,6 +16,29 @@ FN is a functional network, a generalization of neural networks implemented in G
 
 > gcloud builds submit -t us-docker.pkg.dev/enhanced-kit-571/fn-dev/fn
 
+## Future Improvements
+
+### Cross-Entropy Loss for Classification
+
+**Current state**: The codebase uses Squared Error Loss (MSE) for both regression and classification tasks. While MSE works fine for regression, it's suboptimal for classification.
+
+**Why Cross-Entropy is better for classification**:
+1. **Probabilistically motivated** - Measures KL divergence between true and predicted probability distributions
+2. **Better gradient behavior** - Gradients remain strong even when predictions are wrong, leading to faster convergence
+3. **Natural pairing with Softmax** - The combination softmax + cross-entropy has a clean gradient: dL/dLogits = yHat - y
+4. **Avoids gradient saturation** - MSE + sigmoid can have vanishing gradients when predictions are confidently wrong
+
+**Implementation approach**:
+1. Add new loss function in `lossfunctions/cross_entropy.go`:
+   - Implement `F(y, yHat)` returning: `-sum(y * log(yHat))` and gradient `-(y / yHat)`
+2. Add Softmax activation layer in `layers/softmax.go`:
+   - Forward: `softmax(x_i) = exp(x_i) / sum(exp(x_j))`
+   - Backward: Jacobian matrix for chain rule
+3. OR: Combine Softmax + Cross-Entropy into single `SoftmaxCrossEntropy` loss for numerical stability and cleaner gradients
+4. Update `cmd/binary_integer_example/main.go` to use new loss function
+
+**Trade-offs**: Adds complexity to the loss function interface, but significantly improves classification training performance.
+
 ## Project History & Key Learnings
 
 ### Development Phases
