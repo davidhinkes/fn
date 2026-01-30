@@ -15,7 +15,9 @@ type Model struct {
 }
 
 func (m Model) Eval(x mat.Vector) mat.Vector {
-	return m.layer.F(x, m.weights)
+	var y mat.VecDense
+	m.layer.F(&y, x, m.weights)
+	return &y
 }
 
 // MakeModel will return a Model from layers.

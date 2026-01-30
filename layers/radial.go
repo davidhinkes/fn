@@ -24,32 +24,41 @@ func (r radial) NumWeights() int {
 	return r.inputs * r.outputs
 }
 
-func (r radial) F(x mat.Vector, h []float64) mat.Vector {
+func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	v := mat.NewDense(r.outputs, r.inputs, h)
-	ret := mat.NewVecDense(r.outputs, nil)
+	dst.ReuseAsVec(r.outputs)
 	// d is a temp vector, re-use to save space
 	var d mat.VecDense
 	for i := 0; i < r.outputs; i++ {
 		d.SubVec(x, v.RowView(i))
-		ret.SetVec(i, math.Sqrt(mat.Dot(&d, &d)))
+		dst.SetVec(i, math.Sqrt(mat.Dot(&d, &d)))
 	}
-	return ret
 }
 
-func (r radial) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
-	y := r.F(x, h)
+func (r radial) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
+	var y mat.VecDense
+	r.F(&y, x, h)
 	w := mat.NewDense(r.outputs, r.inputs, h)
-	dYdX := mat.NewDense(r.outputs, r.inputs, nil)
-	dYdW := mat.NewDense(r.outputs, r.NumWeights(), nil)
+
+	dYdX.Reset()
+	dYdX.ReuseAs(r.outputs, r.inputs)
+
+	if dYdH != nil {
+		dYdH.Reset()
+		dYdH.ReuseAs(r.outputs, r.NumWeights())
+	}
+
 	for i := 0; i < r.outputs; i++ {
 		f := 1. / y.AtVec(i)
 		for j := 0; j < r.inputs; j++ {
 			k := i*r.inputs + j // k is the index of Wij into h
-			dYdW.Set(i, k, -f*(x.AtVec(j)-w.At(i, j)))
-			dYdX.Set(i, j, f*(x.AtVec(j)-w.At(i, j)))
+			val := x.AtVec(j) - w.At(i, j)
+			if dYdH != nil {
+				dYdH.Set(i, k, -f*val)
+			}
+			dYdX.Set(i, j, f*val)
 		}
 	}
-	return dYdX, dYdW
 }
 
 var _ fn.Layer = radial{}

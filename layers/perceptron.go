@@ -22,23 +22,24 @@ func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 	return mat.NewDense(p.outputs, p.inputs, h)
 }
 
-func (p *perceptron) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
+func (p *perceptron) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	w := p.mkWeights(h)
-	dYdH := mat.NewDense(p.outputs, len(h), nil)
-	rows, columns := w.Dims()
-	for i := 0; i < rows; i++ {
-		for j := 0; j < columns; j++ {
-			// assumption of row-major layout of h & w
-			dYdH.Set(i, columns*i+j, x.AtVec(j))
+	dYdX.CloneFrom(w)
+	if dYdH != nil {
+		rows, columns := w.Dims()
+		dYdH.Reset()
+		dYdH.ReuseAs(p.outputs, len(h))
+		for i := 0; i < rows; i++ {
+			for j := 0; j < columns; j++ {
+				// assumption of row-major layout of h & w
+				dYdH.Set(i, columns*i+j, x.AtVec(j))
+			}
 		}
 	}
-	return w, dYdH
 }
 
-func (p *perceptron) F(x mat.Vector, h []float64) mat.Vector {
-	var ret mat.VecDense
-	ret.MulVec(p.mkWeights(h), x)
-	return &ret
+func (p *perceptron) F(dst *mat.VecDense, x mat.Vector, h []float64) {
+	dst.MulVec(p.mkWeights(h), x)
 }
 
 func (p *perceptron) NumWeights() int {

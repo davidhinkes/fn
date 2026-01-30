@@ -27,13 +27,14 @@ func (b bias) NumWeights() int {
 	return b.n
 }
 
-func (b bias) F(x mat.Vector, h []float64) mat.Vector {
+func (b bias) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	w := mat.NewVecDense(b.n, h)
-	var ret mat.VecDense
-	ret.AddVec(x, w)
-	return &ret
+	dst.AddVec(x, w)
 }
 
-func (b bias) D(x mat.Vector, _ []float64) (mat.Matrix, mat.Matrix) {
-	return b.identity, b.identity
+func (b bias) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
+	dYdX.CloneFrom(b.identity)
+	if dYdH != nil {
+		dYdH.CloneFrom(b.identity)
+	}
 }

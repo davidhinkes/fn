@@ -139,18 +139,22 @@ func testLayerEqual(t *testing.T, n int, layerA fn.Layer, layerB fn.Layer) {
 	}
 	h := mkRandomSlice(layerA.NumWeights())
 	x := mkRandomVec(n)
-	if a, b := layerA.F(x, h), layerB.F(x, h); !mat.Equal(a, b) {
-		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(a), mat.Formatted(b))
+	var a, b mat.VecDense
+	layerA.F(&a, x, h)
+	layerB.F(&b, x, h)
+	if !mat.Equal(&a, &b) {
+		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(&a), mat.Formatted(&b))
 	}
-	aDx, aDh := layerA.D(x, h)
-	bDx, bDh := layerB.D(x, h)
-	if !mat.Equal(aDx, bDx) {
+	var aDx, aDh, bDx, bDh mat.Dense
+	layerA.D(&aDx, &aDh, x, h)
+	layerB.D(&bDx, &bDh, x, h)
+	if !mat.Equal(&aDx, &bDx) {
 		t.Errorf("Expecting Dx matrix should be equal. Got \n%v\n and \n%v\n",
-			mat.Formatted(aDx), mat.Formatted(bDx))
+			mat.Formatted(&aDx), mat.Formatted(&bDx))
 	}
-	if !mat.Equal(aDh, bDh) {
-		t.Errorf("Expecting Dx matrix should be equal. Got \n%v\n and \n%v\n",
-			mat.Formatted(aDh), mat.Formatted(bDh))
+	if !mat.Equal(&aDh, &bDh) {
+		t.Errorf("Expecting Dh matrix should be equal. Got \n%v\n and \n%v\n",
+			mat.Formatted(&aDh), mat.Formatted(&bDh))
 	}
 }
 

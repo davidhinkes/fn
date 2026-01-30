@@ -27,13 +27,14 @@ func (s serialNode) NumWeights() int {
 	return s.left.NumWeights() + s.right.NumWeights()
 }
 
-func (s serialNode) F(x mat.Vector, h []float64) mat.Vector {
+func (s serialNode) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	n := s.left.NumWeights()
-	xPrime := s.left.F(x, h[:n])
-	return s.right.F(xPrime, h[n:])
+	var xPrime mat.VecDense
+	s.left.F(&xPrime, x, h[:n])
+	s.right.F(dst, &xPrime, h[n:])
 }
 
-func (s serialNode) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
+func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float64) {
 	// [ℵ, ℶ] = h
 	// y = left(x, ℵ)
 	// z = right(y, ℶ)
@@ -43,25 +44,61 @@ func (s serialNode) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
 	// dZdℵ = dZdY * dYdℵ (matrix multiplication)
 	// dZdX = dZdY * dYdX (matrix multiplication)
 	n := s.left.NumWeights()
-	dYdX, dYdℵ := s.left.D(x, h[:n])
-	y := s.left.F(x, h[:n])
-	dZdY, dZdℶ := s.right.D(y, h[n:])
-	var dZdX mat.Dense
-	dZdX.Mul(dZdY, dYdX) // memory allocation
-	// it's possible that dZdℵ and/or dZdℶ are nil
-	if dYdℵ == nil && dZdℶ == nil {
-		return &dZdX, nil
-	}
-	if dYdℵ == nil {
-		return &dZdX, dZdℶ
-	}
-	var dZdℵ mat.Dense
-	dZdℵ.Mul(dZdY, dYdℵ) // memory allocation
-	if dZdℶ == nil {
-		return &dZdX, &dZdℵ
-	}
-	var dZdH mat.Dense
-	dZdH.Augment(&dZdℵ, dZdℶ) // not sure if this is an allocation or not
 
-	return &dZdX, &dZdH
+	// Compute y = left(x)
+	var y mat.VecDense
+	s.left.F(&y, x, h[:n])
+
+	// Get derivatives from left layer
+	var dYdX mat.Dense
+	var dYdℵ mat.Dense
+	hasLeftWeights := s.left.NumWeights() > 0
+	if hasLeftWeights {
+		s.left.D(&dYdX, &dYdℵ, x, h[:n])
+	} else {
+		s.left.D(&dYdX, nil, x, h[:n])
+	}
+
+	// Get derivatives from right layer
+	var dZdY mat.Dense
+	var dZdℶ mat.Dense
+	hasRightWeights := s.right.NumWeights() > 0
+	if hasRightWeights {
+		s.right.D(&dZdY, &dZdℶ, &y, h[n:])
+	} else {
+		s.right.D(&dZdY, nil, &y, h[n:])
+	}
+
+	// Compute dZdX = dZdY * dYdX
+	dZdX.Mul(&dZdY, &dYdX)
+
+	// Compute dZdH if requested
+	if dZdH == nil {
+		return
+	}
+
+	// Handle the case where one or both layers have no weights
+	if !hasLeftWeights && !hasRightWeights {
+		// No weights at all, dZdH should not be used
+		return
+	}
+
+	if !hasLeftWeights {
+		// Only right layer has weights
+		dZdH.CloneFrom(&dZdℶ)
+		return
+	}
+
+	// Compute dZdℵ = dZdY * dYdℵ
+	var dZdℵ mat.Dense
+	dZdℵ.Mul(&dZdY, &dYdℵ)
+
+	if !hasRightWeights {
+		// Only left layer has weights
+		dZdH.CloneFrom(&dZdℵ)
+		return
+	}
+
+	// Both layers have weights, concatenate horizontally
+	dZdH.Augment(&dZdℵ, &dZdℶ)
 }

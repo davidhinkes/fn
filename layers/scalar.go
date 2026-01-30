@@ -20,12 +20,13 @@ func (s scalar) NumWeights() int {
 	return s.n
 }
 
-func (s scalar) F(x mat.Vector, h []float64) mat.Vector {
-	var ret mat.VecDense
-	ret.MulElemVec(x, mat.NewVecDense(s.n, h))
-	return &ret
+func (s scalar) F(dst *mat.VecDense, x mat.Vector, h []float64) {
+	dst.MulElemVec(x, mat.NewVecDense(s.n, h))
 }
 
-func (s scalar) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
-	return diagFromSlice(h), diag(x)
+func (s scalar) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
+	dYdX.CloneFrom(diagFromSlice(h))
+	if dYdH != nil {
+		dYdH.CloneFrom(diag(x))
+	}
 }

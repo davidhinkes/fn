@@ -45,60 +45,73 @@ func (p par) weights(h []float64) [][]float64 {
 	return hs
 }
 
-func (p par) F(x mat.Vector, h []float64) mat.Vector {
+func (p par) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	hs := p.weights(h)
 	var yLen int
-	var ys []mat.Vector
+	// First pass: compute all outputs and accumulate total length
+	temps := make([]mat.VecDense, len(hs))
 	for i, h := range hs {
-		y := p.layers[i].F(x, h)
-		yLen += y.Len()
-		ys = append(ys, y)
+		p.layers[i].F(&temps[i], x, h)
+		yLen += temps[i].Len()
 	}
-	ret := make([]float64, yLen)
+	// Second pass: concatenate results
+	dst.ReuseAsVec(yLen)
 	var offset int
-	for _, y := range ys {
-		i := offset
-		j := offset + y.Len()
-		mat.Col(ret[i:j], 0, y)
+	for i := range temps {
+		y := &temps[i]
+		for j := 0; j < y.Len(); j++ {
+			dst.SetVec(offset+j, y.AtVec(j))
+		}
 		offset += y.Len()
 	}
-	return mat.NewVecDense(yLen, ret)
 }
 
-func (p par) D(x mat.Vector, h []float64) (mat.Matrix, mat.Matrix) {
+func (p par) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	hs := p.weights(h)
-	var dxs []mat.Matrix
-	var dhs []mat.Matrix
+
+	// Allocate temporary storage for all derivatives
+	dxTemps := make([]mat.Dense, len(hs))
+	dhTemps := make([]mat.Dense, len(hs))
+
 	var yLen int
 	for i, h := range hs {
-		dx, dh := p.layers[i].D(x, h)
-		dxs = append(dxs, dx)
-		dhs = append(dhs, dh)
-		{
-			y, _ := dh.Dims()
-			yLen += y
+		if dYdH != nil && p.layers[i].NumWeights() > 0 {
+			p.layers[i].D(&dxTemps[i], &dhTemps[i], x, h)
+		} else {
+			p.layers[i].D(&dxTemps[i], nil, x, h)
 		}
-	}
-	dydx := mat.NewDense(yLen, x.Len(), nil)
-	var offset int
-	for _, m := range dxs {
-		place(dydx, offset, 0, m)
-		r, _ := m.Dims()
-		offset += r
-	}
-	dydh := mat.NewDense(yLen, len(h), nil)
-	var iOffset int
-	var jOffset int
-	for _, m := range dhs {
-		place(dydh, iOffset, jOffset, m)
-		{
-			r, c := m.Dims()
-			iOffset += r
-			jOffset += c
-		}
+		r, _ := dxTemps[i].Dims()
+		yLen += r
 	}
 
-	return dydx, dydh
+	// Assemble dYdX
+	dYdX.Reset()
+	dYdX.ReuseAs(yLen, x.Len())
+	var offset int
+	for i := range dxTemps {
+		place(dYdX, offset, 0, &dxTemps[i])
+		r, _ := dxTemps[i].Dims()
+		offset += r
+	}
+
+	// Assemble dYdH if requested
+	if dYdH != nil {
+		dYdH.Reset()
+		dYdH.ReuseAs(yLen, len(h))
+		var iOffset int
+		var jOffset int
+		for i := range dhTemps {
+			if p.layers[i].NumWeights() > 0 {
+				place(dYdH, iOffset, jOffset, &dhTemps[i])
+				r, c := dhTemps[i].Dims()
+				iOffset += r
+				jOffset += c
+			} else {
+				r, _ := dxTemps[i].Dims()
+				iOffset += r
+			}
+		}
+	}
 }
 
 func (p par) NumWeights() int {
