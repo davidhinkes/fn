@@ -25,15 +25,13 @@ func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 func (p *perceptron) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	w := p.mkWeights(h)
 	dYdX.CloneFrom(w)
-	if dYdH != nil {
-		rows, columns := w.Dims()
-		dYdH.Reset()
-		dYdH.ReuseAs(p.outputs, len(h))
-		for i := 0; i < rows; i++ {
-			for j := 0; j < columns; j++ {
-				// assumption of row-major layout of h & w
-				dYdH.Set(i, columns*i+j, x.AtVec(j))
-			}
+	rows, columns := w.Dims()
+	dYdH.Reset()
+	dYdH.ReuseAs(p.outputs, len(h))
+	for i := 0; i < rows; i++ {
+		for j := 0; j < columns; j++ {
+			// assumption of row-major layout of h & w
+			dYdH.Set(i, columns*i+j, x.AtVec(j))
 		}
 	}
 }

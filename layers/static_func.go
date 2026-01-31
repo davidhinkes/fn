@@ -20,12 +20,12 @@ func (s staticFunc) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
 }
 
 func (s staticFunc) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
-	v := make([]float64, x.Len())
-	for i := range v {
-		v[i] = s.d(x.AtVec(i))
+	n := x.Len()
+	dYdX.ReuseAs(n, n)
+	dYdX.Zero()
+	for i := range n {
+		dYdX.Set(i, i, s.d(x.AtVec(i)))
 	}
-	diag := diagFromSlice(v)
-	dYdX.CloneFrom(diag)
 	// dYdH is not modified - static functions have no weights
 }
 

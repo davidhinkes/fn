@@ -52,53 +52,34 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	// Get derivatives from left layer
 	var dYdX mat.Dense
 	var dYdℵ mat.Dense
-	hasLeftWeights := s.left.NumWeights() > 0
-	if hasLeftWeights {
-		s.left.D(&dYdX, &dYdℵ, x, h[:n])
-	} else {
-		s.left.D(&dYdX, nil, x, h[:n])
-	}
+
+	s.left.D(&dYdX, &dYdℵ, x, h[:n])
 
 	// Get derivatives from right layer
 	var dZdY mat.Dense
 	var dZdℶ mat.Dense
-	hasRightWeights := s.right.NumWeights() > 0
-	if hasRightWeights {
-		s.right.D(&dZdY, &dZdℶ, &y, h[n:])
-	} else {
-		s.right.D(&dZdY, nil, &y, h[n:])
-	}
+	s.right.D(&dZdY, &dZdℶ, &y, h[n:])
 
 	// Compute dZdX = dZdY * dYdX
 	dZdX.Mul(&dZdY, &dYdX)
-
-	// Compute dZdH if requested
-	if dZdH == nil {
-		return
-	}
-
-	// Handle the case where one or both layers have no weights
+	hasLeftWeights, hasRightWeights := s.left.NumWeights() > 0, s.right.NumWeights() > 0
 	if !hasLeftWeights && !hasRightWeights {
-		// No weights at all, dZdH should not be used
+		// We're done, don't bother computing dZdH
 		return
 	}
-
 	if !hasLeftWeights {
-		// Only right layer has weights
+		// This is simple, just dZdH == dZdℶ
 		dZdH.CloneFrom(&dZdℶ)
 		return
 	}
-
-	// Compute dZdℵ = dZdY * dYdℵ
+	// At this point, we need dZdℵ = dZdY * dYdℵ
 	var dZdℵ mat.Dense
 	dZdℵ.Mul(&dZdY, &dYdℵ)
-
 	if !hasRightWeights {
 		// Only left layer has weights
 		dZdH.CloneFrom(&dZdℵ)
 		return
 	}
-
 	// Both layers have weights, concatenate horizontally
 	dZdH.Augment(&dZdℵ, &dZdℶ)
 }

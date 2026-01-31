@@ -34,7 +34,5 @@ func (b bias) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 
 func (b bias) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
 	dYdX.CloneFrom(b.identity)
-	if dYdH != nil {
-		dYdH.CloneFrom(b.identity)
-	}
+	dYdH.CloneFrom(b.identity)
 }
