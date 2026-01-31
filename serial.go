@@ -17,6 +17,20 @@ func Serial(layers ...Layer) Layer {
 	}
 }
 
+func SerialBuilder(builders ...LayerBuilder) LayerBuilder {
+	return func(inputs int) Layer {
+		leftLayer := builders[0](inputs)
+		if len(builders) == 1 {
+			return leftLayer
+		}
+		_, leftLayerOutputs, _ := leftLayer.Shape()
+		return serialNode{
+			left:  leftLayer,
+			right: SerialBuilder(builders[1:]...)(leftLayerOutputs),
+		}
+	}
+}
+
 // Type serialNode is the core struct that implements a serial Layer.
 // It is implemented via recursion, which is elegant but perhaps has performance
 // concerns.

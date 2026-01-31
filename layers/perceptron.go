@@ -6,10 +6,12 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func MakePerceptronLayer(inputs, outputs int) fn.Layer {
-	return &perceptron{
-		inputs:  inputs,
-		outputs: outputs,
+func Perceptron(outputs int) fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		return &perceptron{
+			inputs:  inputs,
+			outputs: outputs,
+		}
 	}
 }
 

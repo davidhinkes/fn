@@ -8,7 +8,7 @@ import (
 )
 
 func TestParallel(t *testing.T) {
-	p := fn.Parallel(MakeScalarLayer(10), MakeScalarLayer(10), MakeScalarLayer(10))
+	p := fn.Parallel(scalar{n: 10}, scalar{n: 10}, scalar{n: 10})
 	_, _, got := p.Shape()
 	if want := 30; got != want {
 		t.Errorf("got %v want %v", got, want)

@@ -10,9 +10,11 @@ type scalar struct {
 	n int
 }
 
-func MakeScalarLayer(n int) fn.Layer {
-	return scalar{
-		n: n,
+func Scalar() fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		return scalar{
+			n: inputs,
+		}
 	}
 }
 

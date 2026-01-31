@@ -27,10 +27,12 @@ func dSigmoid(x float64) float64 {
 	return ex / (denom * denom)
 }
 
-func MakeSigmoid(inputs int) fn.Layer {
-	return staticFunc{
-		f: sigmoid,
-		d: dSigmoid,
-		n: inputs,
+func Sigmoid() fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		return staticFunc{
+			f: sigmoid,
+			d: dSigmoid,
+			n: inputs,
+		}
 	}
 }

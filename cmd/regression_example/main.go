@@ -75,8 +75,9 @@ func main() {
 	truth := euclidean{}
 	inputCardinality, outputCardinality := truth.Dims()
 	model := fn.MakeModel(
-		layers.MakeRadialLayer(inputCardinality, K),
-		layers.MakePerceptronLayer(K, outputCardinality), layers.MakeBiasLayer(outputCardinality),
+		inputCardinality,
+		layers.Radial(K),
+		layers.Perceptron(outputCardinality), layers.Bias(),
 	)
 	lossFunction := lossfunctions.NewSquaredError()
 	vxs, vys := test.MakeExamples(truth, *trainingExamples)

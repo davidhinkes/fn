@@ -8,10 +8,12 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func MakeRadialLayer(inputs, outputs int) fn.Layer {
-	return radial{
-		inputs:  inputs,
-		outputs: outputs,
+func Radial(outputs int) fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		return radial{
+			inputs:  inputs,
+			outputs: outputs,
+		}
 	}
 }
 

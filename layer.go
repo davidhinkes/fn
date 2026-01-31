@@ -16,3 +16,5 @@ type Layer interface {
 	// Shape returns the layer dimensions: (inputs, outputs, numWeights).
 	Shape() (inputs, outputs, weights int)
 }
+
+type LayerBuilder func(inputs int) Layer

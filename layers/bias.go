@@ -11,14 +11,16 @@ type bias struct {
 	identity mat.Matrix
 }
 
-func MakeBiasLayer(n int) fn.Layer {
-	identityMatrix := mat.NewDense(n, n, nil)
-	for i := range n {
-		identityMatrix.Set(i, i, 1)
-	}
-	return bias{
-		n:        n,
-		identity: identityMatrix,
+func Bias() fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		identityMatrix := mat.NewDense(inputs, inputs, nil)
+		for i := range inputs {
+			identityMatrix.Set(i, i, 1)
+		}
+		return bias{
+			n:        inputs,
+			identity: identityMatrix,
+		}
 	}
 }
 

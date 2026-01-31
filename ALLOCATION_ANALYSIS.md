@@ -6,11 +6,12 @@
 ```go
 // 5-layer network: 32 -> 16 -> sigmoid -> 16 -> 32
 model := MakeModel(
-    layers.MakePerceptronLayer(32, 16),
-    layers.MakeBiasLayer(16),
-    layers.MakeSigmoid(),
-    layers.MakePerceptronLayer(16, 32),
-    layers.MakeBiasLayer(32),
+    32,
+    layers.Perceptron(16),
+    layers.Bias(),
+    layers.Sigmoid(),
+    layers.Perceptron(32),
+    layers.Bias(),
 )
 ```
 

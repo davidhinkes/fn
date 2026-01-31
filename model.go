@@ -21,10 +21,10 @@ func (m Model) Eval(x mat.Vector) mat.Vector {
 	return y
 }
 
-// MakeModel will return a Model from layers.
-func MakeModel(layers ...Layer) Model {
+// MakeModel will return a Model from LayerBuilders.
+func MakeModel(inputs int, builders ...LayerBuilder) Model {
 	// combine into a single layer
-	layer := Serial(layers...)
+	layer := SerialBuilder(builders...)(inputs)
 	_, _, numWeights := layer.Shape()
 	return Model{
 		layer:   layer,
