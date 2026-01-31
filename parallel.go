@@ -9,7 +9,8 @@ import (
 func Parallel(layers ...Layer) Layer {
 	var n int
 	for _, l := range layers {
-		n += l.NumWeights()
+		_, _, w := l.Shape()
+		n += w
 	}
 
 	return par{
@@ -36,7 +37,7 @@ func (p par) weights(h []float64) [][]float64 {
 	var hs [][]float64
 	var offset int
 	for _, layer := range p.layers {
-		numWeights := layer.NumWeights()
+		_, _, numWeights := layer.Shape()
 		j := offset + numWeights
 		i := offset
 		hs = append(hs, h[i:j])
@@ -47,18 +48,17 @@ func (p par) weights(h []float64) [][]float64 {
 
 func (p par) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	hs := p.weights(h)
-	var yLen int
-	// First pass: compute all outputs and accumulate total length
-	temps := make([]mat.VecDense, len(hs))
+	// Pre-allocate temps with correct sizes
+	temps := make([]*mat.VecDense, len(hs))
 	for i, h := range hs {
-		p.layers[i].F(&temps[i], x, h)
-		yLen += temps[i].Len()
+		_, outputs, _ := p.layers[i].Shape()
+		temps[i] = mat.NewVecDense(outputs, nil)
+		p.layers[i].F(temps[i], x, h)
 	}
 	// Second pass: concatenate results
-	dst.ReuseAsVec(yLen)
 	var offset int
 	for i := range temps {
-		y := &temps[i]
+		y := temps[i]
 		for j := 0; j < y.Len(); j++ {
 			dst.SetVec(offset+j, y.AtVec(j))
 		}
@@ -70,39 +70,39 @@ func (p par) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	hs := p.weights(h)
 
 	// Allocate temporary storage for all derivatives
-	dxTemps := make([]mat.Dense, len(hs))
-	dhTemps := make([]mat.Dense, len(hs))
+	dxTemps := make([]*mat.Dense, len(hs))
+	dhTemps := make([]*mat.Dense, len(hs))
 
 	var yLen int
 	for i, h := range hs {
-		if dYdH != nil && p.layers[i].NumWeights() > 0 {
-			p.layers[i].D(&dxTemps[i], &dhTemps[i], x, h)
+		layerInputs, layerOutputs, layerWeights := p.layers[i].Shape()
+		dxTemps[i] = mat.NewDense(layerOutputs, layerInputs, nil)
+		if dYdH != nil && layerWeights > 0 {
+			dhTemps[i] = mat.NewDense(layerOutputs, layerWeights, nil)
+			p.layers[i].D(dxTemps[i], dhTemps[i], x, h)
 		} else {
-			p.layers[i].D(&dxTemps[i], nil, x, h)
+			p.layers[i].D(dxTemps[i], nil, x, h)
 		}
-		r, _ := dxTemps[i].Dims()
-		yLen += r
+		yLen += layerOutputs
 	}
 
 	// Assemble dYdX
-	dYdX.Reset()
-	dYdX.ReuseAs(yLen, x.Len())
+	dYdX.Zero()
 	var offset int
 	for i := range dxTemps {
-		place(dYdX, offset, 0, &dxTemps[i])
+		place(dYdX, offset, 0, dxTemps[i])
 		r, _ := dxTemps[i].Dims()
 		offset += r
 	}
 
 	// Assemble dYdH if requested
 	if dYdH != nil {
-		dYdH.Reset()
-		dYdH.ReuseAs(yLen, len(h))
+		dYdH.Zero()
 		var iOffset int
 		var jOffset int
 		for i := range dhTemps {
-			if p.layers[i].NumWeights() > 0 {
-				place(dYdH, iOffset, jOffset, &dhTemps[i])
+			if dhTemps[i] != nil {
+				place(dYdH, iOffset, jOffset, dhTemps[i])
 				r, c := dhTemps[i].Dims()
 				iOffset += r
 				jOffset += c
@@ -114,6 +114,17 @@ func (p par) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	}
 }
 
-func (p par) NumWeights() int {
-	return p.numWeights
+func (p par) Shape() (inputs, outputs, weights int) {
+	if len(p.layers) == 0 {
+		return 0, 0, 0
+	}
+	firstInputs, _, _ := p.layers[0].Shape()
+	totalOutputs := 0
+	totalWeights := 0
+	for _, layer := range p.layers {
+		_, layerOutputs, layerWeights := layer.Shape()
+		totalOutputs += layerOutputs
+		totalWeights += layerWeights
+	}
+	return firstInputs, totalOutputs, totalWeights
 }

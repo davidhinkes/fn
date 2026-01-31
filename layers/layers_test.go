@@ -107,10 +107,10 @@ func TestStaticFuncLayer(t *testing.T) {
 	// Because perceptron is on the left, the performance is much worse due to large
 	// matrix multiplications.
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(MakePerceptronLayer(n, n), staticFunc{f: f, d: d})
+		return fn.MakeModel(MakePerceptronLayer(n, n), staticFunc{f: f, d: d, n: n})
 	}, identity{N: 64})
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(staticFunc{f: f, d: d}, MakePerceptronLayer(n, n))
+		return fn.MakeModel(staticFunc{f: f, d: d, n: n}, MakePerceptronLayer(n, n))
 	}, identity{N: 64})
 }
 
@@ -134,27 +134,37 @@ func (i identity) Rand(dst *mat.VecDense) {
 
 func testLayerEqual(t *testing.T, n int, layerA fn.Layer, layerB fn.Layer) {
 	t.Helper()
-	if a, b := layerA.NumWeights(), layerB.NumWeights(); a != b {
-		t.Errorf("NumWeights should be the same, got \n%v\n vs \n%v\n", a, b)
+	_, _, a := layerA.Shape()
+	_, _, b := layerB.Shape()
+	if a != b {
+		t.Errorf("weights should be the same, got \n%v\n vs \n%v\n", a, b)
 	}
-	h := mkRandomSlice(layerA.NumWeights())
+	h := mkRandomSlice(a)
 	x := mkRandomVec(n)
-	var a, b mat.VecDense
-	layerA.F(&a, x, h)
-	layerB.F(&b, x, h)
-	if !mat.Equal(&a, &b) {
-		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(&a), mat.Formatted(&b))
+	_, aOutputs, _ := layerA.Shape()
+	_, bOutputs, _ := layerB.Shape()
+	aVec := mat.NewVecDense(aOutputs, nil)
+	bVec := mat.NewVecDense(bOutputs, nil)
+	layerA.F(aVec, x, h)
+	layerB.F(bVec, x, h)
+	if !mat.Equal(aVec, bVec) {
+		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(aVec), mat.Formatted(bVec))
 	}
-	var aDx, aDh, bDx, bDh mat.Dense
-	layerA.D(&aDx, &aDh, x, h)
-	layerB.D(&bDx, &bDh, x, h)
-	if !mat.Equal(&aDx, &bDx) {
+	aInputs, aOutputs2, aWeights := layerA.Shape()
+	_, bOutputs2, bWeights := layerB.Shape()
+	aDx := mat.NewDense(aOutputs2, aInputs, nil)
+	aDh := mat.NewDense(aOutputs2, aWeights, nil)
+	bDx := mat.NewDense(bOutputs2, aInputs, nil)
+	bDh := mat.NewDense(bOutputs2, bWeights, nil)
+	layerA.D(aDx, aDh, x, h)
+	layerB.D(bDx, bDh, x, h)
+	if !mat.Equal(aDx, bDx) {
 		t.Errorf("Expecting Dx matrix should be equal. Got \n%v\n and \n%v\n",
-			mat.Formatted(&aDx), mat.Formatted(&bDx))
+			mat.Formatted(aDx), mat.Formatted(bDx))
 	}
-	if !mat.Equal(&aDh, &bDh) {
+	if !mat.Equal(aDh, bDh) {
 		t.Errorf("Expecting Dh matrix should be equal. Got \n%v\n and \n%v\n",
-			mat.Formatted(&aDh), mat.Formatted(&bDh))
+			mat.Formatted(aDh), mat.Formatted(bDh))
 	}
 }
 
@@ -166,8 +176,8 @@ func TestEquivalentLayer(t *testing.T) {
 	//	fn.Serial(MakePerceptronLayer(n, n), staticFunc{f: f, d: d}),
 	//	MakePerceptronLayer(n, n))
 	testLayerEqual(t, n,
-		fn.Serial(MakePerceptronLayer(n, n), staticFunc{f: f, d: d}),
-		fn.Serial(staticFunc{f: f, d: d}, MakePerceptronLayer(n, n)))
+		fn.Serial(MakePerceptronLayer(n, n), staticFunc{f: f, d: d, n: n}),
+		fn.Serial(staticFunc{f: f, d: d, n: n}, MakePerceptronLayer(n, n)))
 }
 
 func mkRandomSlice(n int) []float64 {

@@ -6,7 +6,7 @@ import (
 	"fn"
 )
 
-func MakeRelu() fn.Layer {
+func MakeRelu(inputs int) fn.Layer {
 	return staticFunc{
 		f: func(x float64) float64 {
 			return math.Max(.1*x, x)
@@ -17,5 +17,6 @@ func MakeRelu() fn.Layer {
 			}
 			return 1.
 		},
+		n: inputs,
 	}
 }

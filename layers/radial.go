@@ -20,13 +20,12 @@ type radial struct {
 	outputs int
 }
 
-func (r radial) NumWeights() int {
-	return r.inputs * r.outputs
+func (r radial) Shape() (inputs, outputs, weights int) {
+	return r.inputs, r.outputs, r.inputs * r.outputs
 }
 
 func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	v := mat.NewDense(r.outputs, r.inputs, h)
-	dst.ReuseAsVec(r.outputs)
 	// d is a temp vector, re-use to save space
 	var d mat.VecDense
 	for i := 0; i < r.outputs; i++ {
@@ -36,16 +35,14 @@ func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 }
 
 func (r radial) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
-	var y mat.VecDense
-	r.F(&y, x, h)
+	y := mat.NewVecDense(r.outputs, nil)
+	r.F(y, x, h)
 	w := mat.NewDense(r.outputs, r.inputs, h)
 
-	dYdX.Reset()
-	dYdX.ReuseAs(r.outputs, r.inputs)
+	dYdX.Zero()
 
 	if dYdH != nil {
-		dYdH.Reset()
-		dYdH.ReuseAs(r.outputs, r.NumWeights())
+		dYdH.Zero()
 	}
 
 	for i := 0; i < r.outputs; i++ {

@@ -16,8 +16,8 @@ func MakeScalarLayer(n int) fn.Layer {
 	}
 }
 
-func (s scalar) NumWeights() int {
-	return s.n
+func (s scalar) Shape() (inputs, outputs, weights int) {
+	return s.n, s.n, s.n
 }
 
 func (s scalar) F(dst *mat.VecDense, x mat.Vector, h []float64) {

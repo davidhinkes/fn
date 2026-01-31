@@ -13,8 +13,8 @@ func mkModel() fn.Model {
 	)
 
 	return fn.MakeModel(
-		MakePerceptronLayer(K, KLog2), MakeBiasLayer(KLog2), MakeSigmoid(),
-		MakePerceptronLayer(KLog2, K), MakeBiasLayer(K), MakeSigmoid(), MakeScalarLayer(K),
+		MakePerceptronLayer(K, KLog2), MakeBiasLayer(KLog2), MakeSigmoid(KLog2),
+		MakePerceptronLayer(KLog2, K), MakeBiasLayer(K), MakeSigmoid(K), MakeScalarLayer(K),
 	)
 }
 

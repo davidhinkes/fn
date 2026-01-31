@@ -85,7 +85,7 @@ func main() {
 	startTime := lastLogUpdateTime
 	for i := 0; ; i++ {
 		xs, ys := test.MakeExamples(truth, *batchSize)
-		e,_ := model.Train(xs, ys, lossFunction, *alpha)
+		e, _ := model.Train(xs, ys, lossFunction, *alpha)
 		if time.Since(startTime) > *maxTime {
 			break
 		}
@@ -96,7 +96,7 @@ func main() {
 		lastLogUpdateTime = time.Now()
 		iterations := i - lastLogUpdateIteration
 		lastLogUpdateIteration = i
-		e,_ = model.Train(vxs, vys, lossFunction, 0)
+		e, _ = model.Train(vxs, vys, lossFunction, 0)
 		log.Printf("loss: %e  iterations: %v", e, iterations)
 	}
 	tests, _ := test.MakeExamples(truth, *trainingExamples)

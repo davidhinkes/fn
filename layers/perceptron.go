@@ -26,8 +26,7 @@ func (p *perceptron) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float
 	w := p.mkWeights(h)
 	dYdX.CloneFrom(w)
 	rows, columns := w.Dims()
-	dYdH.Reset()
-	dYdH.ReuseAs(p.outputs, len(h))
+	dYdH.Zero()
 	for i := 0; i < rows; i++ {
 		for j := 0; j < columns; j++ {
 			// assumption of row-major layout of h & w
@@ -40,6 +39,6 @@ func (p *perceptron) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	dst.MulVec(p.mkWeights(h), x)
 }
 
-func (p *perceptron) NumWeights() int {
-	return p.inputs * p.outputs
+func (p *perceptron) Shape() (inputs, outputs, weights int) {
+	return p.inputs, p.outputs, p.inputs * p.outputs
 }

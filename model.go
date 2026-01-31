@@ -15,18 +15,20 @@ type Model struct {
 }
 
 func (m Model) Eval(x mat.Vector) mat.Vector {
-	var y mat.VecDense
-	m.layer.F(&y, x, m.weights)
-	return &y
+	_, outputs, _ := m.layer.Shape()
+	y := mat.NewVecDense(outputs, nil)
+	m.layer.F(y, x, m.weights)
+	return y
 }
 
 // MakeModel will return a Model from layers.
 func MakeModel(layers ...Layer) Model {
 	// combine into a single layer
 	layer := Serial(layers...)
+	_, _, numWeights := layer.Shape()
 	return Model{
 		layer:   layer,
-		weights: random(layer.NumWeights()),
+		weights: random(numWeights),
 	}
 }
 

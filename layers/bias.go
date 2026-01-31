@@ -23,8 +23,8 @@ func MakeBiasLayer(n int) fn.Layer {
 	return b
 }
 
-func (b bias) NumWeights() int {
-	return b.n
+func (b bias) Shape() (inputs, outputs, weights int) {
+	return b.n, b.n, b.n
 }
 
 func (b bias) F(dst *mat.VecDense, x mat.Vector, h []float64) {

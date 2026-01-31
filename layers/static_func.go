@@ -1,6 +1,8 @@
 package layers
 
 import (
+	"log"
+
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -10,10 +12,13 @@ import (
 type staticFunc struct {
 	f func(x float64) float64
 	d func(x float64) float64
+	n int
 }
 
 func (s staticFunc) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
-	dst.ReuseAsVec(x.Len())
+	if x.Len() != s.n {
+		log.Fatalf("staticFunc expecting input of size %v, got input %v", x.Len(), s.n)
+	}
 	for i := 0; i < x.Len(); i++ {
 		dst.SetVec(i, s.f(x.AtVec(i)))
 	}
@@ -21,7 +26,6 @@ func (s staticFunc) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
 
 func (s staticFunc) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
 	n := x.Len()
-	dYdX.ReuseAs(n, n)
 	dYdX.Zero()
 	for i := range n {
 		dYdX.Set(i, i, s.d(x.AtVec(i)))
@@ -29,6 +33,6 @@ func (s staticFunc) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float6
 	// dYdH is not modified - static functions have no weights
 }
 
-func (_ staticFunc) NumWeights() int {
-	return 0
+func (s staticFunc) Shape() (inputs, outputs, weights int) {
+	return s.n, s.n, 0
 }

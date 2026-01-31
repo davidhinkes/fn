@@ -29,12 +29,13 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			defer wg.Done()
 			y := model.Eval(x)
 			loss, dLossDyT := lossFunction.F(y, yHat)
-			var dYdX mat.Dense
-			var dYdW mat.Dense
-			model.layer.D(&dYdX, &dYdW, x, model.weights)
+			inputs, outputs, weights := model.layer.Shape()
+			dYdX := mat.NewDense(outputs, inputs, nil)
+			dYdW := mat.NewDense(outputs, weights, nil)
+			model.layer.D(dYdX, dYdW, x, model.weights)
 			// dLdWT = (dLdY * dYdW)T
 			var dLdWT mat.VecDense
-			dLdWT.MulVec(mat.Transpose{Matrix: &dYdW}, dLossDyT)
+			dLdWT.MulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
 			c <- tuple{
 				l: loss,
 				v: &dLdWT,
@@ -42,7 +43,8 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 		}(x, yHats[i])
 	}
 	var loss float64
-	dLossdWT := mat.NewVecDense(model.layer.NumWeights(), nil)
+	_, _, numWeights := model.layer.Shape()
+	dLossdWT := mat.NewVecDense(numWeights, nil)
 	for p := range c {
 		loss += p.l
 		dLossdWT.AddVec(dLossdWT, p.v)

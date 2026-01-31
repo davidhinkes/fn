@@ -73,7 +73,7 @@ func main() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
 	model := fn.MakeModel(
-		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(),
+		layers.MakePerceptronLayer(K, KLog2), layers.MakeBiasLayer(KLog2), layers.MakeSigmoid(KLog2),
 		layers.MakePerceptronLayer(KLog2, K), layers.MakeBiasLayer(K),
 	)
 	opts := fn.TrainOptions{

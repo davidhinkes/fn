@@ -1,8 +1,6 @@
 package fn
 
 import (
-	"fn/matrixpool"
-
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -25,15 +23,17 @@ type serialNode struct {
 	right Layer
 }
 
-func (s serialNode) NumWeights() int {
-	return s.left.NumWeights() + s.right.NumWeights()
+func (s serialNode) Shape() (inputs, outputs, weights int) {
+	leftInputs, _, leftWeights := s.left.Shape()
+	_, rightOutputs, rightWeights := s.right.Shape()
+	return leftInputs, rightOutputs, leftWeights + rightWeights
 }
 
 func (s serialNode) F(dst *mat.VecDense, x mat.Vector, h []float64) {
-	n := s.left.NumWeights()
-	var xPrime mat.VecDense
-	s.left.F(&xPrime, x, h[:n])
-	s.right.F(dst, &xPrime, h[n:])
+	_, leftOutputs, leftWeights := s.left.Shape()
+	xPrime := mat.NewVecDense(leftOutputs, nil)
+	s.left.F(xPrime, x, h[:leftWeights])
+	s.right.F(dst, xPrime, h[leftWeights:])
 }
 
 func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float64) {
@@ -45,45 +45,49 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	// dZdH = [dZdℵ, dZdℶ]
 	// dZdℵ = dZdY * dYdℵ (matrix multiplication)
 	// dZdX = dZdY * dYdX (matrix multiplication)
-	n := s.left.NumWeights()
+	leftInputs, leftOutputs, leftWeights := s.left.Shape()
 
 	// Compute y = left(x)
-	var y mat.VecDense
-	s.left.F(&y, x, h[:n])
+	y := mat.NewVecDense(leftOutputs, nil)
+	s.left.F(y, x, h[:leftWeights])
 
 	// Get derivatives from left layer
-	//var dYdX mat.Dense
-	dYdX := matrixpool.GetDense(y.Len(), x.Len())
-	defer matrixpool.PutDense(dYdX)
-	var dYdℵ mat.Dense
+	dYdX := mat.NewDense(leftOutputs, leftInputs, nil)
+	var dYdℵ *mat.Dense
+	if leftWeights > 0 {
+		dYdℵ = mat.NewDense(leftOutputs, leftWeights, nil)
+	}
 
-	s.left.D(dYdX, &dYdℵ, x, h[:n])
+	s.left.D(dYdX, dYdℵ, x, h[:leftWeights])
 
 	// Get derivatives from right layer
-	var dZdY mat.Dense
-	var dZdℶ mat.Dense
-	s.right.D(&dZdY, &dZdℶ, &y, h[n:])
+	rightInputs, rightOutputs, rightWeights := s.right.Shape()
+	dZdY := mat.NewDense(rightOutputs, rightInputs, nil)
+	var dZdℶ *mat.Dense
+	if rightWeights > 0 {
+		dZdℶ = mat.NewDense(rightOutputs, rightWeights, nil)
+	}
+	s.right.D(dZdY, dZdℶ, y, h[leftWeights:])
 
 	// Compute dZdX = dZdY * dYdX
-	dZdX.Mul(&dZdY, dYdX)
-	hasLeftWeights, hasRightWeights := s.left.NumWeights() > 0, s.right.NumWeights() > 0
-	if !hasLeftWeights && !hasRightWeights {
+	dZdX.Mul(dZdY, dYdX)
+	if leftWeights == 0 && rightWeights == 0 {
 		// We're done, don't bother computing dZdH
 		return
 	}
-	if !hasLeftWeights {
+	if leftWeights == 0 {
 		// This is simple, just dZdH == dZdℶ
-		dZdH.CloneFrom(&dZdℶ)
+		dZdH.CloneFrom(dZdℶ)
 		return
 	}
 	// At this point, we need dZdℵ = dZdY * dYdℵ
-	var dZdℵ mat.Dense
-	dZdℵ.Mul(&dZdY, &dYdℵ)
-	if !hasRightWeights {
+	dZdℵ := mat.NewDense(rightOutputs, leftWeights, nil)
+	dZdℵ.Mul(dZdY, dYdℵ)
+	if rightWeights == 0 {
 		// Only left layer has weights
-		dZdH.CloneFrom(&dZdℵ)
+		dZdH.CloneFrom(dZdℵ)
 		return
 	}
 	// Both layers have weights, concatenate horizontally
-	dZdH.Augment(&dZdℵ, &dZdℶ)
+	dZdH.Augment(dZdℵ, dZdℶ)
 }

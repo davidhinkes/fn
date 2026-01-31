@@ -9,18 +9,22 @@ import (
 
 func TestParallel(t *testing.T) {
 	p := fn.Parallel(MakeScalarLayer(10), MakeScalarLayer(10), MakeScalarLayer(10))
-	if got, want := p.NumWeights(), 30; got != want {
+	_, _, got := p.Shape()
+	if want := 30; got != want {
 		t.Errorf("got %v want %v", got, want)
 	}
 	h := make([]float64, 30)
 	x := mat.NewVecDense(10, nil)
-	var y mat.VecDense
-	p.F(&y, x, h)
+	_, outputs, _ := p.Shape()
+	y := mat.NewVecDense(outputs, nil)
+	p.F(y, x, h)
 	if y.Len() != 30 {
 		t.Errorf("got %v, want 30", y.Len())
 	}
-	var dydx, dydh mat.Dense
-	p.D(&dydx, &dydh, x, h)
+	inputs := x.Len()
+	dydx := mat.NewDense(outputs, inputs, nil)
+	dydh := mat.NewDense(outputs, got, nil)
+	p.D(dydx, dydh, x, h)
 	if r, c := dydx.Dims(); r != 30 || c != 10 {
 		t.Errorf("got %vx%v; want 30x10", r, c)
 	}
