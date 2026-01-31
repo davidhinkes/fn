@@ -12,15 +12,14 @@ type bias struct {
 }
 
 func MakeBiasLayer(n int) fn.Layer {
-	ident := make([]float64, n)
-	for i := range ident {
-		ident[i] = 1.
+	identityMatrix := mat.NewDense(n, n, nil)
+	for i := range n {
+		identityMatrix.Set(i, i, 1)
 	}
-	b := bias{
+	return bias{
 		n:        n,
-		identity: diagFromSlice(ident),
+		identity: identityMatrix,
 	}
-	return b
 }
 
 func (b bias) Shape() (inputs, outputs, weights int) {

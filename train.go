@@ -1,6 +1,7 @@
 package fn
 
 import (
+	"fn/matrixpool"
 	"log"
 	"sync"
 	"time"
@@ -30,8 +31,10 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			y := model.Eval(x)
 			loss, dLossDyT := lossFunction.F(y, yHat)
 			inputs, outputs, weights := model.layer.Shape()
-			dYdX := mat.NewDense(outputs, inputs, nil)
-			dYdW := mat.NewDense(outputs, weights, nil)
+			dYdX := matrixpool.GetDense(outputs, inputs)
+			defer matrixpool.PutDense(dYdX)
+			dYdW := matrixpool.GetDense(outputs, weights)
+			defer matrixpool.PutDense(dYdW)
 			model.layer.D(dYdX, dYdW, x, model.weights)
 			// dLdWT = (dLdY * dYdW)T
 			var dLdWT mat.VecDense
@@ -44,7 +47,8 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 	}
 	var loss float64
 	_, _, numWeights := model.layer.Shape()
-	dLossdWT := mat.NewVecDense(numWeights, nil)
+	dLossdWT := matrixpool.GetVec(numWeights)
+	defer matrixpool.PutVec(dLossdWT)
 	for p := range c {
 		loss += p.l
 		dLossdWT.AddVec(dLossdWT, p.v)

@@ -1,6 +1,8 @@
 package fn
 
 import (
+	"fn/matrixpool"
+
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -31,7 +33,8 @@ func (s serialNode) Shape() (inputs, outputs, weights int) {
 
 func (s serialNode) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	_, leftOutputs, leftWeights := s.left.Shape()
-	xPrime := mat.NewVecDense(leftOutputs, nil)
+	xPrime := matrixpool.GetVec(leftOutputs)
+	defer matrixpool.PutVec(xPrime)
 	s.left.F(xPrime, x, h[:leftWeights])
 	s.right.F(dst, xPrime, h[leftWeights:])
 }
@@ -48,24 +51,29 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	leftInputs, leftOutputs, leftWeights := s.left.Shape()
 
 	// Compute y = left(x)
-	y := mat.NewVecDense(leftOutputs, nil)
+	y := matrixpool.GetVec(leftOutputs)
+	defer matrixpool.PutVec(y)
 	s.left.F(y, x, h[:leftWeights])
 
 	// Get derivatives from left layer
-	dYdX := mat.NewDense(leftOutputs, leftInputs, nil)
+	dYdX := matrixpool.GetDense(leftOutputs, leftInputs)
+	defer matrixpool.PutDense(dYdX)
 	var dYdℵ *mat.Dense
 	if leftWeights > 0 {
-		dYdℵ = mat.NewDense(leftOutputs, leftWeights, nil)
+		dYdℵ = matrixpool.GetDense(leftOutputs, leftWeights)
+		defer matrixpool.PutDense(dYdℵ)
 	}
 
 	s.left.D(dYdX, dYdℵ, x, h[:leftWeights])
 
 	// Get derivatives from right layer
 	rightInputs, rightOutputs, rightWeights := s.right.Shape()
-	dZdY := mat.NewDense(rightOutputs, rightInputs, nil)
+	dZdY := matrixpool.GetDense(rightOutputs, rightInputs)
+	defer matrixpool.PutDense(dZdY)
 	var dZdℶ *mat.Dense
 	if rightWeights > 0 {
-		dZdℶ = mat.NewDense(rightOutputs, rightWeights, nil)
+		dZdℶ = matrixpool.GetDense(rightOutputs, rightWeights)
+		defer matrixpool.PutDense(dZdℶ)
 	}
 	s.right.D(dZdY, dZdℶ, y, h[leftWeights:])
 
@@ -81,7 +89,8 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 		return
 	}
 	// At this point, we need dZdℵ = dZdY * dYdℵ
-	dZdℵ := mat.NewDense(rightOutputs, leftWeights, nil)
+	dZdℵ := matrixpool.GetDense(rightOutputs, leftWeights)
+	defer matrixpool.PutDense(dZdℵ)
 	dZdℵ.Mul(dZdY, dYdℵ)
 	if rightWeights == 0 {
 		// Only left layer has weights

@@ -25,8 +25,6 @@ func (s scalar) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 }
 
 func (s scalar) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
-	dYdX.CloneFrom(diagFromSlice(h))
-	if dYdH != nil {
-		dYdH.CloneFrom(diag(x))
-	}
+	diagFromSlice(dYdX, h)
+	diag(dYdH, x)
 }

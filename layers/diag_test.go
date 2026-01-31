@@ -11,10 +11,14 @@ func TestDiag(t *testing.T) {
 	for i, v := range d {
 		m.Set(i, i, v)
 	}
-	if a := diagFromSlice(d); !mat.Equal(a, m) {
+	a := mat.NewDense(len(d), len(d), nil)
+	diagFromSlice(a, d)
+	if !mat.Equal(a, m) {
 		t.Errorf("%v and %v should be equal, but are not", mat.Formatted(a), mat.Formatted(m))
 	}
-	if a := diag(mat.NewVecDense(len(d), d)); !mat.Equal(a, m) {
-		t.Errorf("%v and %v should be equal, but are not", mat.Formatted(a), mat.Formatted(m))
+	b := mat.NewDense(len(d), len(d), nil)
+	diag(b, mat.NewVecDense(len(d), d))
+	if !mat.Equal(b, m) {
+		t.Errorf("%v and %v should be equal, but are not", mat.Formatted(b), mat.Formatted(m))
 	}
 }
