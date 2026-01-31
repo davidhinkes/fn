@@ -1,6 +1,8 @@
 package fn
 
 import (
+	"fn/matrixpool"
+
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -50,10 +52,12 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	s.left.F(&y, x, h[:n])
 
 	// Get derivatives from left layer
-	var dYdX mat.Dense
+	//var dYdX mat.Dense
+	dYdX := matrixpool.GetDense(y.Len(), x.Len())
+	defer matrixpool.PutDense(dYdX)
 	var dYdℵ mat.Dense
 
-	s.left.D(&dYdX, &dYdℵ, x, h[:n])
+	s.left.D(dYdX, &dYdℵ, x, h[:n])
 
 	// Get derivatives from right layer
 	var dZdY mat.Dense
@@ -61,7 +65,7 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	s.right.D(&dZdY, &dZdℶ, &y, h[n:])
 
 	// Compute dZdX = dZdY * dYdX
-	dZdX.Mul(&dZdY, &dYdX)
+	dZdX.Mul(&dZdY, dYdX)
 	hasLeftWeights, hasRightWeights := s.left.NumWeights() > 0, s.right.NumWeights() > 0
 	if !hasLeftWeights && !hasRightWeights {
 		// We're done, don't bother computing dZdH
