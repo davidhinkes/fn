@@ -6,6 +6,7 @@ import (
 
 // Parallel returns a single layer from multiple layers executed independently. Each layer's input
 // must be of the same cardinality. The output cardinality is the sum of the individual layer's outputs.
+// WARNING: this Parallel code has been heavily updated by Claude through several API changes. It has not been vetted.
 func Parallel(layers ...Layer) Layer {
 	var n int
 	for _, l := range layers {

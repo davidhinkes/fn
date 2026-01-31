@@ -97,6 +97,41 @@ FN is a functional network, a generalization of neural networks implemented in G
 - Improved logging and status callbacks
 - Added animated spinner display to reduce screen clutter
 
+#### Phase 8: Allocation Optimization & API Redesign (Jan 2026)
+**The Output Parameter Revolution:**
+- **Major API change**: Transitioned from allocation-on-return to output parameters
+  - `F(dst *mat.VecDense, x mat.Vector, h []float64)` instead of `F(x, h) mat.Vector`
+  - `D(dYdX, dYdH *mat.Dense, x, h)` instead of `D(x, h) (mat.Matrix, mat.Matrix)`
+- **Shape() API**: Replaced `NumWeights()` with `Shape() (inputs, outputs, weights int)`
+  - Eliminated runtime dimension queries
+  - Enabled proper pre-allocation of derivative matrices
+
+**Matrix Pooling with sync.Pool:**
+- Implemented `matrixpool` package for temporary matrix reuse
+- Pooled allocations in hot paths: `serial.go`, `train.go`, layer implementations
+- **Critical insight**: Most temporary matrices in backpropagation can be pooled
+
+**diag Function Optimization:**
+- Changed diagonal matrix functions to use output parameters
+- `diag(dst *mat.Dense, x)` instead of `diag(x) mat.Matrix`
+- Eliminated allocations in activation function derivatives
+
+**Performance Results (destapi branch vs main):**
+- **Speed**: 15-38% faster across all operations
+  - Serial backward: 17% faster
+  - Parallel backward: 37.6% faster (best improvement)
+  - Training step: 14.5% faster
+- **Memory**: 41-95% reduction in allocations
+  - Serial forward: 94.6% less (2,368 → 128 bytes, 80% fewer allocs)
+  - Serial backward: 63.7% less (12.8 MB → 4.6 MB)
+  - Training step: 83.8% less (26 MB → 4.2 MB, 16.9% fewer allocs)
+- **GC pressure**: Dramatically reduced due to matrix pooling
+
+**Key Implementation Details:**
+- Used `defer` pattern for pool returns to ensure cleanup
+- Zero'd pooled matrices before reuse to avoid stale data
+- Maintained thread-safety with mutex-protected pool maps keyed by matrix dimensions
+
 ### Key Learnings
 
 1. **Performance intuition can be wrong**: DiagDense *should* be faster but isn't - measure everything
@@ -111,7 +146,15 @@ FN is a functional network, a generalization of neural networks implemented in G
 
 6. **Testing prevents regression**: Extensive layer tests catch numerical problems early
 
-7. **Memory management trade-offs**: Started with custom arena, removed it - simpler is often better
+7. **Memory management trade-offs**: Started with custom arena, removed it - now using sync.Pool for targeted pooling
 
 8. **Gradient descent is subtle**: Multiple iterations on step size, normalization, and clipping
+
+9. **Output parameters beat return allocations**: For hot paths, pre-allocating and reusing memory dramatically reduces GC pressure
+
+10. **Allocation profiling is essential**: Benchmarking revealed that 83-95% of training memory was temporary allocations
+
+11. **The right abstraction enables optimization**: Shape() API made pre-allocation possible; output parameters enabled pooling
+
+12. **sync.Pool is powerful when used correctly**: Dimension-keyed pools with Zero() before reuse provides safe, fast matrix reuse
 
