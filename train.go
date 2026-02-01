@@ -29,8 +29,10 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 		go func(x mat.Vector, yHat mat.Vector) {
 			defer wg.Done()
 			y := model.Eval(x)
-			loss, dLossDyT := lossFunction.F(y, yHat)
 			inputs, outputs, weights := model.layer.Shape()
+			dLossDyT := matrixpool.GetVec(outputs)
+			defer matrixpool.PutVec(dLossDyT)
+			loss := lossFunction.F(dLossDyT, y, yHat)
 			dYdX := matrixpool.GetDense(outputs, inputs)
 			defer matrixpool.PutDense(dYdX)
 			dYdW := matrixpool.GetDense(outputs, weights)

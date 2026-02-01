@@ -5,7 +5,7 @@ import (
 )
 
 type LossFunction interface {
-	// F returns the loss (first return argument) and partial
-	// derivative with respect to y (second return argument).
-	F(y mat.Vector, yHat mat.Vector) (float64, mat.Vector)
+	// F computes the loss and writes the partial derivative with
+	// respect to y into dst.
+	F(dst *mat.VecDense, y mat.Vector, yHat mat.Vector) float64
 }

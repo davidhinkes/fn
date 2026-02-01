@@ -13,10 +13,9 @@ func NewSquaredError() fn.LossFunction {
 type squaredError struct {
 }
 
-func (s squaredError) F(y mat.Vector, yHat mat.Vector) (float64, mat.Vector) {
+func (s squaredError) F(dst *mat.VecDense, y mat.Vector, yHat mat.Vector) float64 {
 	e := mat.NewVecDense(y.Len(), nil)
 	e.SubVec(y, yHat)
-	d := mat.NewVecDense(y.Len(), nil)
-	d.ScaleVec(2.0, e)
-	return mat.Dot(e, e), d
+	dst.ScaleVec(2.0, e)
+	return mat.Dot(e, e)
 }
