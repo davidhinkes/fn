@@ -75,13 +75,13 @@ func main() {
 	model := fn.MakeModel(
 		K,
 		layers.Perceptron(KLog2), layers.Bias(), layers.Sigmoid(),
-		layers.Perceptron(K), layers.Bias(),
+		layers.Perceptron(K), layers.Bias(), layers.Softmax(),
 	)
 	opts := fn.TrainOptions{
 		Alpha:          *alpha,
 		TrainDuration:  *maxTime,
 		BatchSize:      *batchSize,
-		LossFunction:   lossfunctions.NewSquaredError(),
+		LossFunction:   lossfunctions.NewCrossEntropy(),
 		StatusDuration: *logUpdatePeriod,
 	}
 	truth := oneHot{Cardinality: K}
