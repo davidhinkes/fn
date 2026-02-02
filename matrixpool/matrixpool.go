@@ -46,9 +46,7 @@ func getVecPool(n int) *sync.Pool {
 }
 
 func GetDense(r, c int) *mat.Dense {
-	m := getMatrixPool(d{r: r, c: c}).Get().(*mat.Dense)
-	m.Zero()
-	return m
+	return getMatrixPool(d{r: r, c: c}).Get().(*mat.Dense)
 }
 
 func PutDense(m *mat.Dense) {
@@ -57,9 +55,7 @@ func PutDense(m *mat.Dense) {
 }
 
 func GetVec(n int) *mat.VecDense {
-	v := getVecPool(n).Get().(*mat.VecDense)
-	v.Zero()
-	return v
+	return getVecPool(n).Get().(*mat.VecDense)
 }
 
 func PutVec(v *mat.VecDense) {

@@ -53,6 +53,7 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 	_, _, numWeights := model.layer.Shape()
 	dLossdWT := matrixpool.GetVec(numWeights)
 	defer matrixpool.PutVec(dLossdWT)
+	dLossdWT.Zero()
 	for p := range c {
 		loss += p.l
 		dLossdWT.AddVec(dLossdWT, p.v)
