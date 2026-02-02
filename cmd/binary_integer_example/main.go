@@ -97,7 +97,8 @@ func main() {
 
 	tests, _ := test.MakeExamples(truth, *trainingExamples)
 	for _, t := range tests {
-		y := model.Eval(t)
+		y := mat.NewVecDense(K, nil)
+		model.Eval(y, t)
 		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
 	}
 

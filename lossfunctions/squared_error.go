@@ -14,8 +14,10 @@ type squaredError struct {
 }
 
 func (s squaredError) F(dst *mat.VecDense, y mat.Vector, yHat mat.Vector) float64 {
-	e := mat.NewVecDense(y.Len(), nil)
-	e.SubVec(y, yHat)
-	dst.ScaleVec(2.0, e)
-	return mat.Dot(e, e)
+	// We're being space efficient by re-using dst as a temp vector.
+	// The order of these commands is very important.
+	dst.SubVec(y, yHat)
+	loss := mat.Dot(dst, dst)
+	dst.ScaleVec(2.0, dst)
+	return loss
 }

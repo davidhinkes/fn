@@ -14,11 +14,8 @@ type Model struct {
 	weights []float64
 }
 
-func (m Model) Eval(x mat.Vector) mat.Vector {
-	_, outputs, _ := m.layer.Shape()
-	y := mat.NewVecDense(outputs, nil)
-	m.layer.F(y, x, m.weights)
-	return y
+func (m Model) Eval(dst *mat.VecDense, x mat.Vector) {
+	m.layer.F(dst, x, m.weights)
 }
 
 // MakeModel will return a Model from LayerBuilders.
@@ -46,8 +43,11 @@ func (m *Model) Marshal(x mat.Vector) ([]byte, error) {
 		Weights: m.weights,
 	}
 	if x != nil {
+		_, outputs, _ := m.layer.Shape()
+		y := mat.NewVecDense(outputs, nil)
+		m.Eval(y, x)
 		s.ExampleX = toSlice(x)
-		s.ExampleY = toSlice(m.Eval(x))
+		s.ExampleY = toSlice(y)
 	}
 	return yaml.Marshal(s)
 }
@@ -87,8 +87,11 @@ func (m *Model) Unmarshal(bytes []byte) error {
 }
 
 func (m *Model) testExample(x, y mat.Vector) error {
+	_, outputs, _ := m.layer.Shape()
+	yPrime := mat.NewVecDense(outputs, nil)
+	m.Eval(yPrime, x)
 	var e mat.VecDense
-	e.SubVec(y, m.Eval(x))
+	e.SubVec(y, yPrime)
 	if s := mat.Dot(&e, &e); s != 0 {
 		return fmt.Errorf("examples do not match; The Model is not compatible with the supplied weights. (squared error=%v)", s)
 	}
