@@ -26,7 +26,7 @@ func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 
 func (p *perceptron) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
 	w := p.mkWeights(h)
-	dYdX.CloneFrom(w)
+	dYdX.Copy(w)
 	rows, columns := w.Dims()
 	dYdH.Zero()
 	for i := 0; i < rows; i++ {

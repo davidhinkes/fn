@@ -13,7 +13,7 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 	// c is the main channel for doing work. For each xs spawn a goroutine
 	// that will push one item.
 	type tuple struct {
-		v mat.Vector
+		v *mat.VecDense
 		l float64
 	}
 	c := make(chan tuple)
@@ -41,11 +41,11 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			defer matrixpool.PutDense(dYdW)
 			model.layer.D(dYdX, dYdW, x, model.weights)
 			// dLdWT = (dLdY * dYdW)T
-			var dLdWT mat.VecDense
+			dLdWT := matrixpool.GetVec(weights) // we reclaim this later in the other thread!
 			dLdWT.MulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
 			c <- tuple{
 				l: loss,
-				v: &dLdWT,
+				v: dLdWT,
 			}
 		}(x, yHats[i])
 	}
@@ -56,6 +56,7 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 	for p := range c {
 		loss += p.l
 		dLossdWT.AddVec(dLossdWT, p.v)
+		matrixpool.PutVec(p.v)
 	}
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	dLossdWT.ScaleVec(1./float64(n), dLossdWT)

@@ -99,7 +99,7 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	}
 	if leftWeights == 0 {
 		// This is simple, just dZdH == dZdℶ
-		dZdH.CloneFrom(dZdℶ)
+		dZdH.Copy(dZdℶ)
 		return
 	}
 	// At this point, we need dZdℵ = dZdY * dYdℵ
@@ -108,7 +108,7 @@ func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float6
 	dZdℵ.Mul(dZdY, dYdℵ)
 	if rightWeights == 0 {
 		// Only left layer has weights
-		dZdH.CloneFrom(dZdℵ)
+		dZdH.Copy(dZdℵ)
 		return
 	}
 	// Both layers have weights, concatenate horizontally
