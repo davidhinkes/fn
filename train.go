@@ -3,65 +3,40 @@ package fn
 import (
 	"fn/matrixpool"
 	"log"
-	"sync"
 	"time"
 
 	"gonum.org/v1/gonum/mat"
 )
 
 func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) (float64, float64) {
-	// c is the main channel for doing work. For each xs spawn a goroutine
-	// that will push one item.
-	type tuple struct {
-		v *mat.VecDense
-		l float64
-	}
-	c := make(chan tuple)
-	wg := sync.WaitGroup{}
+	inputs, outputs, numWeights := model.layer.Shape()
 	n := len(xs)
-	wg.Add(n)
-	// Close c only after all workers have completed.
-	go func() {
-		wg.Wait()
-		close(c)
-	}()
-	for i, x := range xs {
-		go func(x mat.Vector, yHat mat.Vector) {
-			defer wg.Done()
-			inputs, outputs, weights := model.layer.Shape()
-			y := matrixpool.GetVec(outputs)
-			defer matrixpool.PutVec(y)
-			model.Eval(y, x)
-			dLdY := matrixpool.GetVec(outputs)
-			defer matrixpool.PutVec(dLdY)
-			loss := lossFunction.F(dLdY, y, yHat)
-			dLdX := matrixpool.GetVec(inputs)
-			defer matrixpool.PutVec(dLdX)
-			dLdW := matrixpool.GetVec(weights) // we reclaim this later in the other thread!
-			model.layer.D(dLdX, dLdW, dLdY, x, model.weights)
-			c <- tuple{
-				l: loss,
-				v: dLdW,
-			}
-		}(x, yHats[i])
-	}
-	var loss float64
-	_, _, numWeights := model.layer.Shape()
+
+	y := matrixpool.GetVec(outputs)
+	defer matrixpool.PutVec(y)
+	dLdY := matrixpool.GetVec(outputs)
+	defer matrixpool.PutVec(dLdY)
+	dLdX := matrixpool.GetVec(inputs)
+	defer matrixpool.PutVec(dLdX)
+	dLdWi := matrixpool.GetVec(numWeights)
+	defer matrixpool.PutVec(dLdWi)
 	dLdW := matrixpool.GetVec(numWeights)
 	defer matrixpool.PutVec(dLdW)
 	dLdW.Zero()
-	for p := range c {
-		loss += p.l
-		dLdW.AddVec(dLdW, p.v)
-		matrixpool.PutVec(p.v) // See dLdW contruction in kickoff thread, above.
+
+	var loss float64
+	for i, x := range xs {
+		model.Eval(y, x)
+		loss += lossFunction.F(dLdY, y, yHats[i])
+		model.layer.D(dLdX, dLdWi, dLdY, x, model.weights)
+		dLdW.AddVec(dLdW, dLdWi)
 	}
+
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	dLdW.ScaleVec(1./float64(n), dLdW)
 	meanLoss := loss / float64(n)
 	gradientNorm := mat.Norm(dLdW, 2)
 	if alpha == 0 || meanLoss == 0 {
-		// if alpha is zero, we don't want any learning
-		// if loss is zero, there is nothing to learn
 		return meanLoss, gradientNorm
 	}
 	w.AddScaledVec(w, -alpha, dLdW)
