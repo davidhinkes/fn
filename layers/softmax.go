@@ -43,20 +43,17 @@ func (s softmax) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
 	dst.ScaleVec(1.0/sum, dst)
 }
 
-func (s softmax) D(dYdX *mat.Dense, _ *mat.Dense, x mat.Vector, h []float64) {
+func (s softmax) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
 	n := x.Len()
 	y := matrixpool.GetVec(n)
 	defer matrixpool.PutVec(y)
 	s.F(y, x, h)
-	// dY[i]/dX[j] = y[i] * (delta_{ij} - y[j])
-	for i := 0; i < n; i++ {
-		yi := y.AtVec(i)
-		for j := 0; j < n; j++ {
-			if i == j {
-				dYdX.Set(i, j, yi*(1-yi)) // shortcut: y[i] == y[j] here
-			} else {
-				dYdX.Set(i, j, -yi*y.AtVec(j))
-			}
-		}
+	// Jacobian: dY[i]/dX[j] = y[i] * (delta_{ij} - y[j])
+	// VJP: dLdX[j] = sum_i dLdY[i] * dY[i]/dX[j]
+	//             = y[j] * (dLdY[j] - dot(dLdY, y))
+	dot := mat.Dot(dLdY, y)
+	for j := 0; j < n; j++ {
+		dLdX.SetVec(j, y.AtVec(j)*(dLdY.AtVec(j)-dot))
 	}
+	// dLdH is nil - softmax has no weights
 }

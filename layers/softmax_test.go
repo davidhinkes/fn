@@ -83,52 +83,56 @@ func TestSoftmaxNumericalStability(t *testing.T) {
 	}
 }
 
-func TestSoftmaxJacobian(t *testing.T) {
+func TestSoftmaxVJP(t *testing.T) {
 	n := 4
 	s := softmax{n: n}
 	x := mat.NewVecDense(n, []float64{0.5, -0.3, 1.2, 0.1})
+	dLdY := mat.NewVecDense(n, []float64{0.1, -0.2, 0.3, -0.1})
 
-	dYdX := mat.NewDense(n, n, nil)
-	s.D(dYdX, nil, x, nil)
+	dLdX := mat.NewVecDense(n, nil)
+	s.D(dLdX, nil, dLdY, x, nil)
 
 	// Verify against numerical differentiation.
+	// For a scalar loss L = dot(dLdY, y), we have dL/dx[j] = dLdX[j]
 	eps := 1e-7
 	y := mat.NewVecDense(n, nil)
 	yPerturbed := mat.NewVecDense(n, nil)
 	s.F(y, x, nil)
+	L := mat.Dot(dLdY, y)
 
 	for j := 0; j < n; j++ {
 		xp := mat.NewVecDense(n, nil)
 		xp.CopyVec(x)
 		xp.SetVec(j, xp.AtVec(j)+eps)
 		s.F(yPerturbed, xp, nil)
-		for i := 0; i < n; i++ {
-			numerical := (yPerturbed.AtVec(i) - y.AtVec(i)) / eps
-			analytical := dYdX.At(i, j)
-			if math.Abs(numerical-analytical) > 1e-5 {
-				t.Errorf("dY[%d]/dX[%d]: numerical=%v analytical=%v", i, j, numerical, analytical)
-			}
+		Lp := mat.Dot(dLdY, yPerturbed)
+		numerical := (Lp - L) / eps
+		analytical := dLdX.AtVec(j)
+		if math.Abs(numerical-analytical) > 1e-5 {
+			t.Errorf("dL/dX[%d]: numerical=%v analytical=%v", j, numerical, analytical)
 		}
 	}
 }
 
-func TestSoftmaxJacobianRowSum(t *testing.T) {
+func TestSoftmaxVJPUniformUpstream(t *testing.T) {
 	n := 5
 	s := softmax{n: n}
-	x := mkRandomVec(n)
+	x := mkRandomVec(n).(*mat.VecDense)
 
-	dYdX := mat.NewDense(n, n, nil)
-	s.D(dYdX, nil, x, nil)
-
-	// Each row of the Jacobian must sum to 0, since the outputs
-	// are constrained to sum to 1.
+	// If dLdY is uniform (all ones), dLdX should be zero.
+	// This is because sum(y) = 1 is constant, so perturbing any input
+	// doesn't change the sum, and a uniform upstream gradient only
+	// cares about the sum.
+	dLdY := mat.NewVecDense(n, nil)
 	for i := 0; i < n; i++ {
-		var rowSum float64
-		for j := 0; j < n; j++ {
-			rowSum += dYdX.At(i, j)
-		}
-		if math.Abs(rowSum) > 1e-12 {
-			t.Errorf("row %d sum=%v, want 0", i, rowSum)
+		dLdY.SetVec(i, 1.0)
+	}
+	dLdX := mat.NewVecDense(n, nil)
+	s.D(dLdX, nil, dLdY, x, nil)
+
+	for j := 0; j < n; j++ {
+		if math.Abs(dLdX.AtVec(j)) > 1e-12 {
+			t.Errorf("dLdX[%d]=%v, want 0", j, dLdX.AtVec(j))
 		}
 	}
 }
