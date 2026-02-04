@@ -26,6 +26,8 @@ func (r radial) Shape() (inputs, outputs, weights int) {
 	return r.inputs, r.outputs, r.inputs * r.outputs
 }
 
+// For a given vector (from matrix h) w:
+// compute ||x-w||
 func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	v := mat.NewDense(r.outputs, r.inputs, h)
 	// d is a temp vector, re-use to save space
@@ -36,26 +38,24 @@ func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	}
 }
 
-func (r radial) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
+// Note that this as been modified by Claude Code and I was not able to verify.
+func (r radial) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
+	// y[i] = ||x - w_i||
+	// dY[i]/dX[j] = (x[j] - w[i,j]) / y[i]
+	// dY[i]/dW[i,j] = -(x[j] - w[i,j]) / y[i]
 	y := mat.NewVecDense(r.outputs, nil)
 	r.F(y, x, h)
 	w := mat.NewDense(r.outputs, r.inputs, h)
 
-	dYdX.Zero()
-
-	if dYdH != nil {
-		dYdH.Zero()
-	}
-
+	dLdX.Zero()
 	for i := 0; i < r.outputs; i++ {
-		f := 1. / y.AtVec(i)
+		f := dLdY.AtVec(i) / y.AtVec(i)
 		for j := 0; j < r.inputs; j++ {
-			k := i*r.inputs + j // k is the index of Wij into h
 			val := x.AtVec(j) - w.At(i, j)
-			if dYdH != nil {
-				dYdH.Set(i, k, -f*val)
-			}
-			dYdX.Set(i, j, f*val)
+			// dLdX[j] += dLdY[i] * dY[i]/dX[j]
+			dLdX.SetVec(j, dLdX.AtVec(j)+f*val)
+			// dLdH[i*inputs + j] = dLdY[i] * dY[i]/dW[i,j]
+			dLdH.SetVec(i*r.inputs+j, -f*val)
 		}
 	}
 }

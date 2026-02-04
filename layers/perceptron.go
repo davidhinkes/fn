@@ -24,15 +24,18 @@ func (p *perceptron) mkWeights(h []float64) mat.Matrix {
 	return mat.NewDense(p.outputs, p.inputs, h)
 }
 
-func (p *perceptron) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64) {
+func (p *perceptron) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
 	w := p.mkWeights(h)
-	dYdX.Copy(w)
-	rows, columns := w.Dims()
-	dYdH.Zero()
-	for i := 0; i < rows; i++ {
-		for j := 0; j < columns; j++ {
-			// assumption of row-major layout of h & w
-			dYdH.Set(i, columns*i+j, x.AtVec(j))
+	// dLdX = W^T * dLdY
+	dLdX.MulVec(w.T(), dLdY)
+	// dLdH: gradient w.r.t. W_ij is dLdY[i] * x[j]
+	// h is row-major, so W_ij is at index h[i*inputs + j]
+	for i := 0; i < p.outputs; i++ {
+		dLdYi := dLdY.AtVec(i)
+		for j := 0; j < p.inputs; j++ {
+			// Confirmed this is correct via chain rule.
+			// Note that all of h is covered. No need to Zero()
+			dLdH.SetVec(i*p.inputs+j, dLdYi*x.AtVec(j))
 		}
 	}
 }

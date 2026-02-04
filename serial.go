@@ -53,64 +53,51 @@ func (s serialNode) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	s.right.F(dst, xPrime, h[leftWeights:])
 }
 
-func (s serialNode) D(dZdX *mat.Dense, dZdH *mat.Dense, x mat.Vector, h []float64) {
+func (s serialNode) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdZ mat.Vector, x mat.Vector, h []float64) {
+	// z = right(left(x))
 	// [ℵ, ℶ] = h
-	// y = left(x, ℵ)
-	// z = right(y, ℶ)
-	// known: dZdY, dYdX, dYdℵ, and dZdℶ (via left/right F & D)
-	// want: dZdX, and dZdH
-	// dZdH = [dZdℵ, dZdℶ]
-	// dZdℵ = dZdY * dYdℵ (matrix multiplication)
-	// dZdX = dZdY * dYdX (matrix multiplication)
-	leftInputs, leftOutputs, leftWeights := s.left.Shape()
+	// want: dLdℵ and dLdℶ (these will make up dLdH)
+	// want: dLdX
+	// Backward pass: propagate dLdZ through right to get dLdY, then through left to get dLdX
+	_, leftOutputs, leftWeights := s.left.Shape()
+	_, _, rightWeights := s.right.Shape()
 
-	// Compute y = left(x)
+	// Forward pass to get intermediate value y = left(x)
 	y := matrixpool.GetVec(leftOutputs)
 	defer matrixpool.PutVec(y)
 	s.left.F(y, x, h[:leftWeights])
 
-	// Get derivatives from left layer
-	dYdX := matrixpool.GetDense(leftOutputs, leftInputs)
-	defer matrixpool.PutDense(dYdX)
-	var dYdℵ *mat.Dense
-	if leftWeights > 0 {
-		dYdℵ = matrixpool.GetDense(leftOutputs, leftWeights)
-		defer matrixpool.PutDense(dYdℵ)
-	}
-
-	s.left.D(dYdX, dYdℵ, x, h[:leftWeights])
-
-	// Get derivatives from right layer
-	rightInputs, rightOutputs, rightWeights := s.right.Shape()
-	dZdY := matrixpool.GetDense(rightOutputs, rightInputs)
-	defer matrixpool.PutDense(dZdY)
-	var dZdℶ *mat.Dense
+	// Backward through right layer: dLdZ -> dLdY
+	dLdY := matrixpool.GetVec(leftOutputs)
+	defer matrixpool.PutVec(dLdY)
+	var dLdℶ *mat.VecDense
 	if rightWeights > 0 {
-		dZdℶ = matrixpool.GetDense(rightOutputs, rightWeights)
-		defer matrixpool.PutDense(dZdℶ)
+		dLdℶ = matrixpool.GetVec(rightWeights)
+		defer matrixpool.PutVec(dLdℶ)
 	}
-	s.right.D(dZdY, dZdℶ, y, h[leftWeights:])
+	s.right.D(dLdY, dLdℶ, dLdZ, y, h[leftWeights:])
 
-	// Compute dZdX = dZdY * dYdX
-	dZdX.Mul(dZdY, dYdX)
-	if leftWeights == 0 && rightWeights == 0 {
-		// We're done, don't bother computing dZdH
+	// Backward through left layer: dLdY -> dLdX
+	var dLdℵ *mat.VecDense
+	if leftWeights > 0 {
+		dLdℵ = matrixpool.GetVec(leftWeights)
+		defer matrixpool.PutVec(dLdℵ)
+	}
+	s.left.D(dLdX, dLdℵ, dLdY, x, h[:leftWeights])
+
+	// Concatenate weight gradients: dLdH = [dLdℵ, dLdℶ]
+	// Ideally, the two sub-matrixes could just be pointers into dLdH
+	if dLdH == nil {
 		return
 	}
-	if leftWeights == 0 {
-		// This is simple, just dZdH == dZdℶ
-		dZdH.Copy(dZdℶ)
-		return
+	if leftWeights > 0 {
+		for i := 0; i < leftWeights; i++ {
+			dLdH.SetVec(i, dLdℵ.AtVec(i))
+		}
 	}
-	// At this point, we need dZdℵ = dZdY * dYdℵ
-	dZdℵ := matrixpool.GetDense(rightOutputs, leftWeights)
-	defer matrixpool.PutDense(dZdℵ)
-	dZdℵ.Mul(dZdY, dYdℵ)
-	if rightWeights == 0 {
-		// Only left layer has weights
-		dZdH.Copy(dZdℵ)
-		return
+	if rightWeights > 0 {
+		for i := 0; i < rightWeights; i++ {
+			dLdH.SetVec(leftWeights+i, dLdℶ.AtVec(i))
+		}
 	}
-	// Both layers have weights, concatenate horizontally
-	dZdH.Augment(dZdℵ, dZdℶ)
 }

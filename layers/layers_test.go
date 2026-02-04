@@ -144,8 +144,8 @@ func testLayerEqual(t *testing.T, n int, layerA fn.Layer, layerB fn.Layer) {
 	}
 	h := mkRandomSlice(a)
 	x := mkRandomVec(n)
-	_, aOutputs, _ := layerA.Shape()
-	_, bOutputs, _ := layerB.Shape()
+	aInputs, aOutputs, aWeights := layerA.Shape()
+	bInputs, bOutputs, bWeights := layerB.Shape()
 	aVec := mat.NewVecDense(aOutputs, nil)
 	bVec := mat.NewVecDense(bOutputs, nil)
 	layerA.F(aVec, x, h)
@@ -153,20 +153,20 @@ func testLayerEqual(t *testing.T, n int, layerA fn.Layer, layerB fn.Layer) {
 	if !mat.Equal(aVec, bVec) {
 		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(aVec), mat.Formatted(bVec))
 	}
-	aInputs, aOutputs2, aWeights := layerA.Shape()
-	_, bOutputs2, bWeights := layerB.Shape()
-	aDx := mat.NewDense(aOutputs2, aInputs, nil)
-	aDh := mat.NewDense(aOutputs2, aWeights, nil)
-	bDx := mat.NewDense(bOutputs2, aInputs, nil)
-	bDh := mat.NewDense(bOutputs2, bWeights, nil)
-	layerA.D(aDx, aDh, x, h)
-	layerB.D(bDx, bDh, x, h)
-	if !mat.Equal(aDx, bDx) {
-		t.Errorf("Expecting Dx matrix should be equal. Got \n%v\n and \n%v\n",
+	// Test backward pass with random upstream gradient
+	dLdY := mkRandomVec(aOutputs).(*mat.VecDense)
+	aDx := mat.NewVecDense(aInputs, nil)
+	aDh := mat.NewVecDense(aWeights, nil)
+	bDx := mat.NewVecDense(bInputs, nil)
+	bDh := mat.NewVecDense(bWeights, nil)
+	layerA.D(aDx, aDh, dLdY, x, h)
+	layerB.D(bDx, bDh, dLdY, x, h)
+	if !mat.EqualApprox(aDx, bDx, 1e-10) {
+		t.Errorf("Expecting dLdX should be equal. Got \n%v\n and \n%v\n",
 			mat.Formatted(aDx), mat.Formatted(bDx))
 	}
-	if !mat.Equal(aDh, bDh) {
-		t.Errorf("Expecting Dh matrix should be equal. Got \n%v\n and \n%v\n",
+	if !mat.EqualApprox(aDh, bDh, 1e-10) {
+		t.Errorf("Expecting dLdH should be equal. Got \n%v\n and \n%v\n",
 			mat.Formatted(aDh), mat.Formatted(bDh))
 	}
 }

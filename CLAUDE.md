@@ -20,15 +20,14 @@ This is a neural network framework in pure Go built on gonum for linear algebra.
 
 ### Core Interfaces (package `fn`)
 
-- **`Layer`** — forward pass `F(dst, x, h)`, derivatives `D(dYdX, dYdH, x, h)`, and `Shape() (inputs, outputs, weights)`. All methods use output parameters (`dst`, `dYdX`, `dYdH`) that callers must pre-allocate to the correct dimensions from `Shape()`. The weight vector `h` is a flat `[]float64` slice owned by the `Model`; layers interpret their slice segment.
+- **`Layer`** — forward pass `F(dst, x, h)`, backward pass `D(dLdX, dLdH, dLdY, x, h)`, and `Shape() (inputs, outputs, weights)`. The backward pass uses Vector-Jacobian Products (VJP): given upstream gradient `dLdY`, it computes `dLdX` (gradient w.r.t. input) and `dLdH` (gradient w.r.t. weights). All methods use output parameters that callers must pre-allocate. The weight vector `h` is a flat `[]float64` slice owned by the `Model`; layers interpret their slice segment.
 - **`LayerBuilder`** — `func(inputs int) Layer`. Enables automatic dimension threading in serial composition—each builder receives the output dimension of the preceding layer.
 - **`LossFunction`** — `F(dst, y, yHat) float64` computes loss and writes gradient into `dst`.
 - **`Model`** — holds a single composed `Layer` and a flat weight vector. `MakeModel(inputs, builders...)` constructs via `SerialBuilder`. Training is multi-threaded: one goroutine per example in the batch, gradients accumulated via channel.
 
 ### Composition
 
-- **`Serial(layers...)`** — chains layers via recursive `serialNode` binary tree. Weights are partitioned by slicing `h[:leftWeights]` / `h[leftWeights:]`. The `D` method implements the chain rule with matrix multiplication and horizontal augmentation of weight gradients.
-- **`Parallel(layers...)`** — runs layers independently on the same input, concatenates outputs. Derivatives are block-diagonal for dYdX and block-structured for dYdH.
+- **`Serial(layers...)`** — chains layers via recursive `serialNode` binary tree. Weights are partitioned by slicing `h[:leftWeights]` / `h[leftWeights:]`. The `D` method propagates gradients backward through the chain, passing each layer's `dLdX` output as the next layer's `dLdY` input.
 
 ### Layer Implementations (package `layers`)
 
@@ -46,4 +45,4 @@ Dimension-keyed `sync.Pool` for `*mat.Dense` and `*mat.VecDense`. Used throughou
 
 - **Output parameters everywhere**: `F` and `D` write into caller-provided buffers rather than returning new allocations. This enables pooling.
 - **Flat weight vector**: All weights for a composed model live in a single `[]float64`. Layers receive slices. This allows the model to update weights directly via `AddScaledVec`.
-- **DiagDense avoidance**: gonum's `DiagDense` causes 450x slowdown in `Dense.Mul()`. The codebase uses regular `Dense` matrices for diagonal data (see `layers/diag.go`).
+- **VJP over Jacobians**: The backward pass uses Vector-Jacobian Products rather than materializing full Jacobian matrices. This is O(n) for element-wise layers (sigmoid, ReLU) instead of O(n²), and avoids gonum's slow `DiagDense` multiplication.

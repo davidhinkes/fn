@@ -7,20 +7,12 @@ import (
 )
 
 type bias struct {
-	n        int
-	identity mat.Matrix
+	n int
 }
 
 func Bias() fn.LayerBuilder {
 	return func(inputs int) fn.Layer {
-		identityMatrix := mat.NewDense(inputs, inputs, nil)
-		for i := range inputs {
-			identityMatrix.Set(i, i, 1)
-		}
-		return bias{
-			n:        inputs,
-			identity: identityMatrix,
-		}
+		return bias{n: inputs}
 	}
 }
 
@@ -33,7 +25,11 @@ func (b bias) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	dst.AddVec(x, w)
 }
 
-func (b bias) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
-	dYdX.Copy(b.identity)
-	dYdH.Copy(b.identity)
+func (b bias) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, _ []float64) {
+	// y = x + b, so dLdX & dLdH are both just equal to dLdY
+	// dLdY is known
+	// dLdX = dLdY * dYdX; dLdY is I
+	// dLdH = dLdY * dYdH; dYdH is I
+	dLdX.CopyVec(dLdY)
+	dLdH.CopyVec(dLdY)
 }

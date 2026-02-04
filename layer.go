@@ -9,9 +9,12 @@ type Layer interface {
 	// dst must be pre-sized to the output dimension from Shape().
 	F(dst *mat.VecDense, x mat.Vector, h []float64)
 
-	// D computes the partial derivatives of the layer.
-	// dYdX must be pre-sized to (outputs, inputs) and dYdH to (outputs, weights) from Shape().
-	D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, h []float64)
+	// D computes gradients via backpropagation (Vector-Jacobian Product).
+	// Given the upstream gradient dLdY (gradient of loss w.r.t. this layer's output),
+	// computes dLdX (gradient w.r.t. input) and dLdH (gradient w.r.t. weights).
+	// dLdX must be pre-sized to inputs, dLdH to weights (from Shape()).
+	// dLdH may be nil if the layer has no weights.
+	D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64)
 
 	// Shape returns the layer dimensions: (inputs, outputs, numWeights).
 	Shape() (inputs, outputs, weights int)

@@ -24,13 +24,13 @@ func (s staticFunc) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
 	}
 }
 
-func (s staticFunc) D(dYdX *mat.Dense, dYdH *mat.Dense, x mat.Vector, _ []float64) {
-	n := x.Len()
-	dYdX.Zero()
-	for i := range n {
-		dYdX.Set(i, i, s.d(x.AtVec(i)))
+func (s staticFunc) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, _ []float64) {
+	// Element-wise: dLdX[i] = dLdY[i] * d(x[i])
+	// This is O(n) instead of O(n²) matrix multiplication
+	for i := range x.Len() {
+		dLdX.SetVec(i, dLdY.AtVec(i)*s.d(x.AtVec(i)))
 	}
-	// dYdH is not modified - static functions have no weights
+	// dLdH is nil - static functions have no weights
 }
 
 func (s staticFunc) Shape() (inputs, outputs, weights int) {

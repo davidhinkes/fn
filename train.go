@@ -32,43 +32,39 @@ func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alp
 			y := matrixpool.GetVec(outputs)
 			defer matrixpool.PutVec(y)
 			model.Eval(y, x)
-			dLossDyT := matrixpool.GetVec(outputs)
-			defer matrixpool.PutVec(dLossDyT)
-			loss := lossFunction.F(dLossDyT, y, yHat)
-			dYdX := matrixpool.GetDense(outputs, inputs)
-			defer matrixpool.PutDense(dYdX)
-			dYdW := matrixpool.GetDense(outputs, weights)
-			defer matrixpool.PutDense(dYdW)
-			model.layer.D(dYdX, dYdW, x, model.weights)
-			// dLdWT = (dLdY * dYdW)T
-			dLdWT := matrixpool.GetVec(weights) // we reclaim this later in the other thread!
-			dLdWT.MulVec(mat.Transpose{Matrix: dYdW}, dLossDyT)
+			dLdY := matrixpool.GetVec(outputs)
+			defer matrixpool.PutVec(dLdY)
+			loss := lossFunction.F(dLdY, y, yHat)
+			dLdX := matrixpool.GetVec(inputs)
+			defer matrixpool.PutVec(dLdX)
+			dLdW := matrixpool.GetVec(weights) // we reclaim this later in the other thread!
+			model.layer.D(dLdX, dLdW, dLdY, x, model.weights)
 			c <- tuple{
 				l: loss,
-				v: dLdWT,
+				v: dLdW,
 			}
 		}(x, yHats[i])
 	}
 	var loss float64
 	_, _, numWeights := model.layer.Shape()
-	dLossdWT := matrixpool.GetVec(numWeights)
-	defer matrixpool.PutVec(dLossdWT)
-	dLossdWT.Zero()
+	dLdW := matrixpool.GetVec(numWeights)
+	defer matrixpool.PutVec(dLdW)
+	dLdW.Zero()
 	for p := range c {
 		loss += p.l
-		dLossdWT.AddVec(dLossdWT, p.v)
-		matrixpool.PutVec(p.v)
+		dLdW.AddVec(dLdW, p.v)
+		matrixpool.PutVec(p.v) // See dLdW contruction in kickoff thread, above.
 	}
 	w := mat.NewVecDense(len(model.weights), model.weights)
-	dLossdWT.ScaleVec(1./float64(n), dLossdWT)
+	dLdW.ScaleVec(1./float64(n), dLdW)
 	meanLoss := loss / float64(n)
-	gradientNorm := mat.Norm(dLossdWT, 2)
+	gradientNorm := mat.Norm(dLdW, 2)
 	if alpha == 0 || meanLoss == 0 {
 		// if alpha is zero, we don't want any learning
 		// if loss is zero, there is nothing to learn
 		return meanLoss, gradientNorm
 	}
-	w.AddScaledVec(w, -alpha, dLossdWT)
+	w.AddScaledVec(w, -alpha, dLdW)
 	return meanLoss, gradientNorm
 }
 
