@@ -23,19 +23,15 @@ This is a neural network framework in pure Go built on gonum for linear algebra.
 - **`Layer`** — forward pass `F(dst, x, h)`, backward pass `D(dLdX, dLdH, dLdY, x, h)`, and `Shape() (inputs, outputs, weights)`. The backward pass uses Vector-Jacobian Products (VJP): given upstream gradient `dLdY`, it computes `dLdX` (gradient w.r.t. input) and `dLdH` (gradient w.r.t. weights). All methods use output parameters that callers must pre-allocate. The weight vector `h` is a flat `[]float64` slice owned by the `Model`; layers interpret their slice segment.
 - **`LayerBuilder`** — `func(inputs int) Layer`. Enables automatic dimension threading in serial composition—each builder receives the output dimension of the preceding layer.
 - **`LossFunction`** — `F(dst, y, yHat) float64` computes loss and writes gradient into `dst`.
-- **`Model`** — holds a single composed `Layer` and a flat weight vector. `MakeModel(inputs, builders...)` constructs via `Serial`. Training is multi-threaded: one goroutine per example in the batch, gradients accumulated via channel.
-
-### Composition
-
-- **`Serial(builders...)`** — chains layer builders via recursive `serialNode` binary tree. Each builder receives the output dimension of the preceding layer. Weights are partitioned by slicing `h[:leftWeights]` / `h[leftWeights:]`. The `D` method propagates gradients backward through the chain, passing each layer's `dLdX` output as the next layer's `dLdY` input.
+- **`Model`** — holds a single composed `Layer` and a flat weight vector. `MakeModel(inputs, builder)` takes a single `LayerBuilder`. Training is multi-threaded: one goroutine per example in the batch, gradients accumulated via channel.
 
 ### Layer Implementations (package `layers`)
 
-Layers with weights: `Perceptron(outputs)`, `Bias()`, `Scalar()`, `Radial()`. Weightless layers: `Sigmoid()`, `ReLU()` (both via `staticFunc`). All return `LayerBuilder`.
+Layers with weights: `Perceptron(outputs)`, `Bias()`, `Scalar()`, `Radial()`. Weightless layers: `Sigmoid()`, `ReLU()` (both via `staticFunc`). Composition: `Serial(builders...)` chains layers sequentially. All return `LayerBuilder`.
 
 ### Memory Management (package `matrixpool`)
 
-Dimension-keyed `sync.Pool` for `*mat.Dense` and `*mat.VecDense`. Used throughout `serial.go` and `train.go` to avoid allocations in hot paths. Pooled matrices are **not zeroed** on `Get`—callers must fully overwrite or explicitly `Zero()`.
+Dimension-keyed `sync.Pool` for `*mat.Dense` and `*mat.VecDense`. Used throughout `layers/serial.go` and `train.go` to avoid allocations in hot paths. Pooled matrices are **not zeroed** on `Get`—callers must fully overwrite or explicitly `Zero()`.
 
 ### Testing (package `test`)
 

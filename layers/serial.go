@@ -1,13 +1,14 @@
-package fn
+package layers
 
 import (
+	"fn"
 	"fn/matrixpool"
 
 	"gonum.org/v1/gonum/mat"
 )
 
-func Serial(builders ...LayerBuilder) LayerBuilder {
-	return func(inputs int) Layer {
+func Serial(builders ...fn.LayerBuilder) fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
 		leftLayer := builders[0](inputs)
 		if len(builders) == 1 {
 			return leftLayer
@@ -24,8 +25,8 @@ func Serial(builders ...LayerBuilder) LayerBuilder {
 // It is implemented via recursion, which is elegant but perhaps has performance
 // concerns.
 type serialNode struct {
-	left  Layer
-	right Layer
+	left  fn.Layer
+	right fn.Layer
 }
 
 func (s serialNode) Shape() (inputs, outputs, weights int) {

@@ -74,11 +74,10 @@ func main() {
 	}()
 	truth := euclidean{}
 	inputCardinality, outputCardinality := truth.Dims()
-	model := fn.MakeModel(
-		inputCardinality,
+	model := fn.MakeModel(inputCardinality, layers.Serial(
 		layers.Radial(K),
 		layers.Perceptron(outputCardinality), layers.Bias(),
-	)
+	))
 	lossFunction := lossfunctions.NewSquaredError()
 	vxs, vys := test.MakeExamples(truth, *trainingExamples)
 	lastLogUpdateTime := time.Now()

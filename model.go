@@ -18,10 +18,9 @@ func (m Model) Eval(dst *mat.VecDense, x mat.Vector) {
 	m.layer.F(dst, x, m.weights)
 }
 
-// MakeModel will return a Model from LayerBuilders.
-func MakeModel(inputs int, builders ...LayerBuilder) Model {
-	// combine into a single layer
-	layer := Serial(builders...)(inputs)
+// MakeModel will return a Model from a LayerBuilder.
+func MakeModel(inputs int, builder LayerBuilder) Model {
+	layer := builder(inputs)
 	_, _, numWeights := layer.Shape()
 	return Model{
 		layer:   layer,

@@ -44,11 +44,11 @@ func TestBiasLayer(t *testing.T) {
 
 func TestBiasSerialLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Perceptron(n), Bias())
+		return fn.MakeModel(n, Serial(Perceptron(n), Bias()))
 	}, identity{N: 32})
 
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Bias(), Perceptron(n))
+		return fn.MakeModel(n, Serial(Bias(), Perceptron(n)))
 	}, identity{N: 16})
 }
 
@@ -61,7 +61,7 @@ func TestPerceptronLayer(t *testing.T) {
 func TestPerceptronSerialLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
 		// Use simple serial layers: 16 -> 16 -> 16
-		return fn.MakeModel(n, Perceptron(n), Perceptron(n))
+		return fn.MakeModel(n, Serial(Perceptron(n), Perceptron(n)))
 	}, identity{N: 16})
 }
 
@@ -71,33 +71,33 @@ func TestScalarLayer(t *testing.T) {
 	}, identity{N: 64})
 
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar(), Bias())
+		return fn.MakeModel(n, Serial(Scalar(), Bias()))
 	}, identity{N: 128})
 }
 
 func TestScalarSerialLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Perceptron(n), Scalar())
+		return fn.MakeModel(n, Serial(Perceptron(n), Scalar()))
 	}, identity{N: 16})
 
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar(), Perceptron(n))
+		return fn.MakeModel(n, Serial(Scalar(), Perceptron(n)))
 	}, identity{N: 16})
 
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar(), Scalar(), Scalar())
+		return fn.MakeModel(n, Serial(Scalar(), Scalar(), Scalar()))
 	}, identity{N: 16})
 }
 
 func TestScalarScalarLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar(), Scalar())
+		return fn.MakeModel(n, Serial(Scalar(), Scalar()))
 	}, identity{N: 64})
 }
 
 func TestScalarSerialLayer2(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar(), Perceptron(n))
+		return fn.MakeModel(n, Serial(Scalar(), Perceptron(n)))
 	}, identity{N: 64})
 }
 
@@ -110,10 +110,10 @@ func TestStaticFuncLayer(t *testing.T) {
 	// Because perceptron is on the left, the performance is much worse due to large
 	// matrix multiplications.
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Perceptron(n), idBuilder)
+		return fn.MakeModel(n, Serial(Perceptron(n), idBuilder))
 	}, identity{N: 64})
 	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, idBuilder, Perceptron(n))
+		return fn.MakeModel(n, Serial(idBuilder, Perceptron(n)))
 	}, identity{N: 64})
 }
 
@@ -181,8 +181,8 @@ func TestEquivalentLayer(t *testing.T) {
 	}
 
 	testLayerEqual(t, n,
-		fn.Serial(Perceptron(n), doubleBuilder)(n),
-		fn.Serial(doubleBuilder, Perceptron(n))(n))
+		Serial(Perceptron(n), doubleBuilder)(n),
+		Serial(doubleBuilder, Perceptron(n))(n))
 }
 
 func mkRandomSlice(n int) []float64 {

@@ -39,10 +39,10 @@ func BenchmarkTrain(b *testing.B) {
 			rng := rand.New(rand.NewSource(42))
 			rand.Seed(42)
 
-			model := fn.MakeModel(dim,
+			model := fn.MakeModel(dim, layers.Serial(
 				layers.Perceptron(dim), layers.Bias(), layers.Sigmoid(),
 				layers.Perceptron(dim), layers.Bias(),
-			)
+			))
 
 			truth := benchIdentity{n: dim, rng: rng}
 			xs, ys := test.MakeExamples(truth, 8)

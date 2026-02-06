@@ -12,11 +12,10 @@ func mkModel() fn.Model {
 		KLog2 = 5
 	)
 
-	return fn.MakeModel(
-		K,
+	return fn.MakeModel(K, Serial(
 		Perceptron(KLog2), Bias(), Sigmoid(),
 		Perceptron(K), Bias(), Sigmoid(), Scalar(),
-	)
+	))
 }
 
 func TestMarshal(t *testing.T) {

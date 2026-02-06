@@ -72,11 +72,10 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port()), nil))
 	}()
-	model := fn.MakeModel(
-		K,
+	model := fn.MakeModel(K, layers.Serial(
 		layers.Perceptron(KLog2), layers.Bias(), layers.Sigmoid(),
 		layers.Perceptron(K), layers.Bias(), layers.Softmax(),
-	)
+	))
 	opts := fn.TrainOptions{
 		Alpha:          *alpha,
 		TrainDuration:  *maxTime,
