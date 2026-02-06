@@ -33,3 +33,7 @@ func TestReluGradients(t *testing.T) {
 func TestSoftmaxGradients(t *testing.T) {
 	test.GradientCheck(t, Softmax()(4))
 }
+
+func TestSerialGradients(t *testing.T) {
+	test.GradientCheck(t, Serial(Perceptron(3), Bias(), Sigmoid())(4))
+}

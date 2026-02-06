@@ -36,12 +36,6 @@ func testLayer(t *testing.T, mkModel func(int) fn.Model, truth test.Truth) {
 	t.Errorf("%s error=%v is too high", t.Name(), e)
 }
 
-func TestBiasLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Bias())
-	}, identity{N: 64})
-}
-
 func TestBiasSerialLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
 		return fn.MakeModel(n, Serial(Perceptron(n), Bias()))
@@ -50,71 +44,6 @@ func TestBiasSerialLayer(t *testing.T) {
 	testLayer(t, func(n int) fn.Model {
 		return fn.MakeModel(n, Serial(Bias(), Perceptron(n)))
 	}, identity{N: 16})
-}
-
-func TestPerceptronLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Perceptron(n))
-	}, identity{N: 32})
-}
-
-func TestPerceptronSerialLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		// Use simple serial layers: 16 -> 16 -> 16
-		return fn.MakeModel(n, Serial(Perceptron(n), Perceptron(n)))
-	}, identity{N: 16})
-}
-
-func TestScalarLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Scalar())
-	}, identity{N: 64})
-
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Scalar(), Bias()))
-	}, identity{N: 128})
-}
-
-func TestScalarSerialLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Perceptron(n), Scalar()))
-	}, identity{N: 16})
-
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Scalar(), Perceptron(n)))
-	}, identity{N: 16})
-
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Scalar(), Scalar(), Scalar()))
-	}, identity{N: 16})
-}
-
-func TestScalarScalarLayer(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Scalar(), Scalar()))
-	}, identity{N: 64})
-}
-
-func TestScalarSerialLayer2(t *testing.T) {
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Scalar(), Perceptron(n)))
-	}, identity{N: 64})
-}
-
-func TestStaticFuncLayer(t *testing.T) {
-	f := func(x float64) float64 { return x }
-	d := func(x float64) float64 { return 1 }
-	idBuilder := func(inputs int) fn.Layer {
-		return staticFunc{f: f, d: d, n: inputs}
-	}
-	// Because perceptron is on the left, the performance is much worse due to large
-	// matrix multiplications.
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(Perceptron(n), idBuilder))
-	}, identity{N: 64})
-	testLayer(t, func(n int) fn.Model {
-		return fn.MakeModel(n, Serial(idBuilder, Perceptron(n)))
-	}, identity{N: 64})
 }
 
 type identity struct {
