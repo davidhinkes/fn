@@ -6,18 +6,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// Serial returns a single layer from multiple layers executed one after another.
-func Serial(layers ...Layer) Layer {
-	if len(layers) == 1 {
-		return layers[0]
-	}
-	return serialNode{
-		left:  layers[0],
-		right: Serial(layers[1:]...),
-	}
-}
-
-func SerialBuilder(builders ...LayerBuilder) LayerBuilder {
+func Serial(builders ...LayerBuilder) LayerBuilder {
 	return func(inputs int) Layer {
 		leftLayer := builders[0](inputs)
 		if len(builders) == 1 {
@@ -26,7 +15,7 @@ func SerialBuilder(builders ...LayerBuilder) LayerBuilder {
 		_, leftLayerOutputs, _ := leftLayer.Shape()
 		return serialNode{
 			left:  leftLayer,
-			right: SerialBuilder(builders[1:]...)(leftLayerOutputs),
+			right: Serial(builders[1:]...)(leftLayerOutputs),
 		}
 	}
 }

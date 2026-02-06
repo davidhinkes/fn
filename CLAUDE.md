@@ -23,11 +23,11 @@ This is a neural network framework in pure Go built on gonum for linear algebra.
 - **`Layer`** — forward pass `F(dst, x, h)`, backward pass `D(dLdX, dLdH, dLdY, x, h)`, and `Shape() (inputs, outputs, weights)`. The backward pass uses Vector-Jacobian Products (VJP): given upstream gradient `dLdY`, it computes `dLdX` (gradient w.r.t. input) and `dLdH` (gradient w.r.t. weights). All methods use output parameters that callers must pre-allocate. The weight vector `h` is a flat `[]float64` slice owned by the `Model`; layers interpret their slice segment.
 - **`LayerBuilder`** — `func(inputs int) Layer`. Enables automatic dimension threading in serial composition—each builder receives the output dimension of the preceding layer.
 - **`LossFunction`** — `F(dst, y, yHat) float64` computes loss and writes gradient into `dst`.
-- **`Model`** — holds a single composed `Layer` and a flat weight vector. `MakeModel(inputs, builders...)` constructs via `SerialBuilder`. Training is multi-threaded: one goroutine per example in the batch, gradients accumulated via channel.
+- **`Model`** — holds a single composed `Layer` and a flat weight vector. `MakeModel(inputs, builders...)` constructs via `Serial`. Training is multi-threaded: one goroutine per example in the batch, gradients accumulated via channel.
 
 ### Composition
 
-- **`Serial(layers...)`** — chains layers via recursive `serialNode` binary tree. Weights are partitioned by slicing `h[:leftWeights]` / `h[leftWeights:]`. The `D` method propagates gradients backward through the chain, passing each layer's `dLdX` output as the next layer's `dLdY` input.
+- **`Serial(builders...)`** — chains layer builders via recursive `serialNode` binary tree. Each builder receives the output dimension of the preceding layer. Weights are partitioned by slicing `h[:leftWeights]` / `h[leftWeights:]`. The `D` method propagates gradients backward through the chain, passing each layer's `dLdX` output as the next layer's `dLdY` input.
 
 ### Layer Implementations (package `layers`)
 

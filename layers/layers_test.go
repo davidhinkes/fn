@@ -175,9 +175,14 @@ func TestEquivalentLayer(t *testing.T) {
 	f := func(x float64) float64 { return 2 * x }
 	d := func(x float64) float64 { return 2 }
 	n := 128
+
+	doubleBuilder := func(inputs int) fn.Layer {
+		return staticFunc{f: f, d: d, n: inputs}
+	}
+
 	testLayerEqual(t, n,
-		fn.Serial(&perceptron{inputs: n, outputs: n}, staticFunc{f: f, d: d, n: n}),
-		fn.Serial(staticFunc{f: f, d: d, n: n}, &perceptron{inputs: n, outputs: n}))
+		fn.Serial(Perceptron(n), doubleBuilder)(n),
+		fn.Serial(doubleBuilder, Perceptron(n))(n))
 }
 
 func mkRandomSlice(n int) []float64 {
