@@ -2,7 +2,9 @@ package layers
 
 import (
 	"fn"
+	"fn/matrixpool"
 
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -20,16 +22,22 @@ func (b bias) Shape() (inputs, outputs, weights int) {
 	return b.n, b.n, b.n
 }
 
-func (b bias) F(dst *mat.VecDense, x mat.Vector, h []float64) {
-	w := mat.NewVecDense(b.n, h)
-	dst.AddVec(x, w)
+func (b bias) F(dst *mat.Dense, X mat.Matrix, h []float64) {
+	rows, _ := X.Dims()
+	dst.Copy(X)
+	for row := 0; row < rows; row++ {
+		floats.Add(dst.RawRowView(row), h)
+	}
 }
 
-func (b bias) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, _ []float64) {
-	// y = x + b, so dLdX & dLdH are both just equal to dLdY
-	// dLdY is known
-	// dLdX = dLdY * dYdX; dLdY is I
-	// dLdH = dLdY * dYdH; dYdH is I
-	dLdX.CopyVec(dLdY)
-	dLdH.CopyVec(dLdY)
+func (b bias) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.Matrix, _ []float64) {
+	rows, _ := dLdY.Dims()
+	dLdX.Copy(dLdY)
+	// dLdH = column sums of dLdY = dLdYᵀ · 1
+	ones := matrixpool.GetVec(rows)
+	defer matrixpool.PutVec(ones)
+	for i := range ones.RawVector().Data {
+		ones.RawVector().Data[i] = 1
+	}
+	dLdH.MulVec(dLdY.T(), ones)
 }

@@ -12,17 +12,17 @@ type Truth interface {
 	Rand(dst *mat.VecDense)
 }
 
-func MakeExamples(t Truth, n int) ([]mat.Vector, []mat.Vector) {
-	var xs, ys []mat.Vector
-	inputCardinality, outputCardinality := t.Dims()
+func MakeExamples(t Truth, n int) (*mat.Dense, *mat.Dense) {
+	inputDim, outputDim := t.Dims()
+	X := mat.NewDense(n, inputDim, nil)
+	Y := mat.NewDense(n, outputDim, nil)
+	x := mat.NewVecDense(inputDim, nil)
+	y := mat.NewVecDense(outputDim, nil)
 	for i := 0; i < n; i++ {
-		x := mat.NewVecDense(inputCardinality, nil)
-		y := mat.NewVecDense(outputCardinality, nil)
-		xs = append(xs, x)
-		ys = append(ys, y)
-
 		t.Rand(x)
 		t.F(y, x)
+		X.SetRow(i, x.RawVector().Data)
+		Y.SetRow(i, y.RawVector().Data)
 	}
-	return xs, ys
+	return X, Y
 }

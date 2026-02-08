@@ -35,59 +35,48 @@ func (s serialNode) Shape() (inputs, outputs, weights int) {
 	return leftInputs, rightOutputs, leftWeights + rightWeights
 }
 
-func (s serialNode) F(dst *mat.VecDense, x mat.Vector, h []float64) {
+func (s serialNode) F(dst *mat.Dense, X mat.Matrix, h []float64) {
+	rows, _ := X.Dims()
 	_, leftOutputs, leftWeights := s.left.Shape()
-	xPrime := matrixpool.GetVec(leftOutputs)
-	defer matrixpool.PutVec(xPrime)
-	s.left.F(xPrime, x, h[:leftWeights])
+	xPrime := matrixpool.GetDense(rows, leftOutputs)
+	defer matrixpool.PutDense(xPrime)
+	s.left.F(xPrime, X, h[:leftWeights])
 	s.right.F(dst, xPrime, h[leftWeights:])
 }
 
-func (s serialNode) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdZ mat.Vector, x mat.Vector, h []float64) {
+func (s serialNode) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdZ mat.Matrix, X mat.Matrix, h []float64) {
 	// z = right(left(x))
 	// [ℵ, ℶ] = h
 	// want: dLdℵ and dLdℶ (these will make up dLdH)
 	// want: dLdX
 	// Backward pass: propagate dLdZ through right to get dLdY, then through left to get dLdX
+	rows, _ := X.Dims()
 	_, leftOutputs, leftWeights := s.left.Shape()
 	_, _, rightWeights := s.right.Shape()
 
 	// Forward pass to get intermediate value y = left(x)
-	y := matrixpool.GetVec(leftOutputs)
-	defer matrixpool.PutVec(y)
-	s.left.F(y, x, h[:leftWeights])
+	y := matrixpool.GetDense(rows, leftOutputs)
+	defer matrixpool.PutDense(y)
+	s.left.F(y, X, h[:leftWeights])
+
+	// When dLdH is non-nil, back sub-layer weight gradient vectors directly
+	// by slices of dLdH's data — sub-layers write straight into dLdH.
+	var dLdℵ, dLdℶ *mat.VecDense
+	if dLdH != nil {
+		raw := dLdH.RawVector().Data
+		if leftWeights > 0 {
+			dLdℵ = mat.NewVecDense(leftWeights, raw[:leftWeights])
+		}
+		if rightWeights > 0 {
+			dLdℶ = mat.NewVecDense(rightWeights, raw[leftWeights:])
+		}
+	}
 
 	// Backward through right layer: dLdZ -> dLdY
-	dLdY := matrixpool.GetVec(leftOutputs)
-	defer matrixpool.PutVec(dLdY)
-	var dLdℶ *mat.VecDense
-	if rightWeights > 0 {
-		dLdℶ = matrixpool.GetVec(rightWeights)
-		defer matrixpool.PutVec(dLdℶ)
-	}
+	dLdY := matrixpool.GetDense(rows, leftOutputs)
+	defer matrixpool.PutDense(dLdY)
 	s.right.D(dLdY, dLdℶ, dLdZ, y, h[leftWeights:])
 
 	// Backward through left layer: dLdY -> dLdX
-	var dLdℵ *mat.VecDense
-	if leftWeights > 0 {
-		dLdℵ = matrixpool.GetVec(leftWeights)
-		defer matrixpool.PutVec(dLdℵ)
-	}
-	s.left.D(dLdX, dLdℵ, dLdY, x, h[:leftWeights])
-
-	// Concatenate weight gradients: dLdH = [dLdℵ, dLdℶ]
-	// Ideally, the two sub-matrixes could just be pointers into dLdH
-	if dLdH == nil {
-		return
-	}
-	if leftWeights > 0 {
-		for i := 0; i < leftWeights; i++ {
-			dLdH.SetVec(i, dLdℵ.AtVec(i))
-		}
-	}
-	if rightWeights > 0 {
-		for i := 0; i < rightWeights; i++ {
-			dLdH.SetVec(leftWeights+i, dLdℶ.AtVec(i))
-		}
-	}
+	s.left.D(dLdX, dLdℵ, dLdY, X, h[:leftWeights])
 }

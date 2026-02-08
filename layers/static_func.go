@@ -1,8 +1,6 @@
 package layers
 
 import (
-	"log"
-
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -15,20 +13,22 @@ type staticFunc struct {
 	n int
 }
 
-func (s staticFunc) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
-	if x.Len() != s.n {
-		log.Fatalf("staticFunc expecting input of size %v, got input %v", x.Len(), s.n)
-	}
-	for i := 0; i < x.Len(); i++ {
-		dst.SetVec(i, s.f(x.AtVec(i)))
+func (s staticFunc) F(dst *mat.Dense, X mat.Matrix, _ []float64) {
+	rows, _ := X.Dims()
+	for row := 0; row < rows; row++ {
+		for i := 0; i < s.n; i++ {
+			dst.Set(row, i, s.f(X.At(row, i)))
+		}
 	}
 }
 
-func (s staticFunc) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, _ []float64) {
-	// Element-wise: dLdX[i] = dLdY[i] * d(x[i])
-	// This is O(n) instead of O(n²) matrix multiplication
-	for i := range x.Len() {
-		dLdX.SetVec(i, dLdY.AtVec(i)*s.d(x.AtVec(i)))
+func (s staticFunc) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.Matrix, _ []float64) {
+	rows, _ := X.Dims()
+	// Element-wise: dLdX[b,i] = dLdY[b,i] * d(X[b,i])
+	for row := 0; row < rows; row++ {
+		for i := 0; i < s.n; i++ {
+			dLdX.Set(row, i, dLdY.At(row, i)*s.d(X.At(row, i)))
+		}
 	}
 	// dLdH is nil - static functions have no weights
 }

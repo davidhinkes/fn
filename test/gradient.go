@@ -29,9 +29,9 @@ func GradientCheckWithSeed(t *testing.T, layer fn.Layer, seed int64) {
 	inputs, outputs, weights := layer.Shape()
 
 	// Generate random inputs, weights, and target
-	x := randVec(rng, inputs)
+	x := randSlice(rng, inputs)
 	h := randSlice(rng, weights)
-	target := randVec(rng, outputs)
+	target := randSlice(rng, outputs)
 
 	dLdXErr, dLdHErr := computeGradientErrors(layer, x, h, target, eps)
 
@@ -43,46 +43,58 @@ func GradientCheckWithSeed(t *testing.T, layer fn.Layer, seed int64) {
 	}
 }
 
-func computeGradientErrors(layer fn.Layer, x *mat.VecDense, h []float64, target *mat.VecDense, eps float64) (dLdXErr, dLdHErr float64) {
+func computeGradientErrors(layer fn.Layer, x, h, target []float64, eps float64) (dLdXErr, dLdHErr float64) {
 	inputs, outputs, weights := layer.Shape()
 
+	// Wrap into 1-row Dense matrices (batch size 1).
+	X := mat.NewDense(1, inputs, x)
+	targetVec := mat.NewVecDense(outputs, target)
+
 	// Allocate buffers
-	y := mat.NewVecDense(outputs, nil)
-	dLdY := mat.NewVecDense(outputs, nil)
-	dLdX := mat.NewVecDense(inputs, nil)
+	Y := mat.NewDense(1, outputs, nil)
+	dLdY := mat.NewDense(1, outputs, nil)
+	dLdX := mat.NewDense(1, inputs, nil)
 	var dLdH *mat.VecDense
 	if weights > 0 {
 		dLdH = mat.NewVecDense(weights, nil)
 	}
 
 	// Forward pass and compute dLdY (using squared error loss)
-	layer.F(y, x, h)
-	dLdY.SubVec(y, target) // dL/dY = y - target for L = 0.5*||y-target||^2
+	layer.F(Y, X, h)
+	yVec := mat.NewVecDense(outputs, nil)
+	for i := 0; i < outputs; i++ {
+		yVec.SetVec(i, Y.At(0, i))
+	}
+	yVec.SubVec(yVec, targetVec) // dL/dY = y - target for L = 0.5*||y-target||^2
+	for i := 0; i < outputs; i++ {
+		dLdY.Set(0, i, yVec.AtVec(i))
+	}
 
 	// Analytical gradients
-	layer.D(dLdX, dLdH, dLdY, x, h)
+	layer.D(dLdX, dLdH, dLdY, X, h)
 
 	// Numerical gradient for dLdX
-	yPlus := mat.NewVecDense(outputs, nil)
-	yMinus := mat.NewVecDense(outputs, nil)
-	xPerturbed := mat.NewVecDense(inputs, nil)
-	xPerturbed.CopyVec(x)
+	YPlus := mat.NewDense(1, outputs, nil)
+	YMinus := mat.NewDense(1, outputs, nil)
+	xPerturbed := make([]float64, inputs)
+	copy(xPerturbed, x)
+	XPerturbed := mat.NewDense(1, inputs, xPerturbed)
 
 	for i := 0; i < inputs; i++ {
-		orig := xPerturbed.AtVec(i)
+		orig := xPerturbed[i]
 
-		xPerturbed.SetVec(i, orig+eps)
-		layer.F(yPlus, xPerturbed, h)
-		lossPlus := squaredError(yPlus, target)
+		xPerturbed[i] = orig + eps
+		layer.F(YPlus, XPerturbed, h)
+		lossPlus := squaredErrorDense(YPlus, targetVec)
 
-		xPerturbed.SetVec(i, orig-eps)
-		layer.F(yMinus, xPerturbed, h)
-		lossMinus := squaredError(yMinus, target)
+		xPerturbed[i] = orig - eps
+		layer.F(YMinus, XPerturbed, h)
+		lossMinus := squaredErrorDense(YMinus, targetVec)
 
-		xPerturbed.SetVec(i, orig)
+		xPerturbed[i] = orig
 
 		numerical := (lossPlus - lossMinus) / (2 * eps)
-		analytical := dLdX.AtVec(i)
+		analytical := dLdX.At(0, i)
 		dLdXErr = max(dLdXErr, relativeError(analytical, numerical))
 	}
 
@@ -95,12 +107,12 @@ func computeGradientErrors(layer fn.Layer, x *mat.VecDense, h []float64, target 
 			orig := hPerturbed[i]
 
 			hPerturbed[i] = orig + eps
-			layer.F(yPlus, x, hPerturbed)
-			lossPlus := squaredError(yPlus, target)
+			layer.F(YPlus, X, hPerturbed)
+			lossPlus := squaredErrorDense(YPlus, targetVec)
 
 			hPerturbed[i] = orig - eps
-			layer.F(yMinus, x, hPerturbed)
-			lossMinus := squaredError(yMinus, target)
+			layer.F(YMinus, X, hPerturbed)
+			lossMinus := squaredErrorDense(YMinus, targetVec)
 
 			hPerturbed[i] = orig
 
@@ -113,10 +125,15 @@ func computeGradientErrors(layer fn.Layer, x *mat.VecDense, h []float64, target 
 	return dLdXErr, dLdHErr
 }
 
-func squaredError(y, target *mat.VecDense) float64 {
-	diff := mat.NewVecDense(y.Len(), nil)
-	diff.SubVec(y, target)
-	return 0.5 * mat.Dot(diff, diff)
+// squaredErrorDense computes 0.5*||Y[0,:] - target||^2 for a 1-row Dense.
+func squaredErrorDense(Y *mat.Dense, target *mat.VecDense) float64 {
+	_, cols := Y.Dims()
+	var sum float64
+	for i := 0; i < cols; i++ {
+		d := Y.At(0, i) - target.AtVec(i)
+		sum += d * d
+	}
+	return 0.5 * sum
 }
 
 func relativeError(analytical, numerical float64) float64 {
@@ -125,10 +142,6 @@ func relativeError(analytical, numerical float64) float64 {
 		return 0 // both essentially zero
 	}
 	return math.Abs(analytical-numerical) / denom
-}
-
-func randVec(rng *rand.Rand, n int) *mat.VecDense {
-	return mat.NewVecDense(n, randSlice(rng, n))
 }
 
 func randSlice(rng *rand.Rand, n int) []float64 {

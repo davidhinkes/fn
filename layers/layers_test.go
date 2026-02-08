@@ -72,24 +72,25 @@ func testLayerEqual(t *testing.T, n int, layerA fn.Layer, layerB fn.Layer) {
 		t.Errorf("weights should be the same, got \n%v\n vs \n%v\n", a, b)
 	}
 	h := mkRandomSlice(a)
-	x := mkRandomVec(n)
+	xSlice := mkRandomSlice(n)
+	X := mat.NewDense(1, n, xSlice)
 	aInputs, aOutputs, aWeights := layerA.Shape()
 	bInputs, bOutputs, bWeights := layerB.Shape()
-	aVec := mat.NewVecDense(aOutputs, nil)
-	bVec := mat.NewVecDense(bOutputs, nil)
-	layerA.F(aVec, x, h)
-	layerB.F(bVec, x, h)
-	if !mat.Equal(aVec, bVec) {
-		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(aVec), mat.Formatted(bVec))
+	aMat := mat.NewDense(1, aOutputs, nil)
+	bMat := mat.NewDense(1, bOutputs, nil)
+	layerA.F(aMat, X, h)
+	layerB.F(bMat, X, h)
+	if !mat.EqualApprox(aMat, bMat, 1e-10) {
+		t.Errorf("Func F should return the same, got \n%v\n vs \n%v\n", mat.Formatted(aMat), mat.Formatted(bMat))
 	}
 	// Test backward pass with random upstream gradient
-	dLdY := mkRandomVec(aOutputs).(*mat.VecDense)
-	aDx := mat.NewVecDense(aInputs, nil)
+	dLdY := mat.NewDense(1, aOutputs, mkRandomSlice(aOutputs))
+	aDx := mat.NewDense(1, aInputs, nil)
 	aDh := mat.NewVecDense(aWeights, nil)
-	bDx := mat.NewVecDense(bInputs, nil)
+	bDx := mat.NewDense(1, bInputs, nil)
 	bDh := mat.NewVecDense(bWeights, nil)
-	layerA.D(aDx, aDh, dLdY, x, h)
-	layerB.D(bDx, bDh, dLdY, x, h)
+	layerA.D(aDx, aDh, dLdY, X, h)
+	layerB.D(bDx, bDh, dLdY, X, h)
 	if !mat.EqualApprox(aDx, bDx, 1e-10) {
 		t.Errorf("Expecting dLdX should be equal. Got \n%v\n and \n%v\n",
 			mat.Formatted(aDx), mat.Formatted(bDx))
@@ -120,8 +121,4 @@ func mkRandomSlice(n int) []float64 {
 		ret[i] = 2*rand.Float64() - 1
 	}
 	return ret
-}
-
-func mkRandomVec(n int) mat.Vector {
-	return mat.NewVecDense(n, mkRandomSlice(n))
 }

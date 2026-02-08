@@ -20,28 +20,25 @@ type perceptron struct {
 	outputs int
 }
 
-func (p *perceptron) mkWeights(h []float64) mat.Matrix {
+func (p *perceptron) mkWeights(h []float64) *mat.Dense {
 	return mat.NewDense(p.outputs, p.inputs, h)
 }
 
-func (p *perceptron) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
-	w := p.mkWeights(h)
-	// dLdX = W^T * dLdY
-	dLdX.MulVec(w.T(), dLdY)
-	// dLdH: gradient w.r.t. W_ij is dLdY[i] * x[j]
-	// h is row-major, so W_ij is at index h[i*inputs + j]
-	for i := 0; i < p.outputs; i++ {
-		dLdYi := dLdY.AtVec(i)
-		for j := 0; j < p.inputs; j++ {
-			// Confirmed this is correct via chain rule.
-			// Note that all of h is covered. No need to Zero()
-			dLdH.SetVec(i*p.inputs+j, dLdYi*x.AtVec(j))
-		}
-	}
+func (p *perceptron) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.Matrix, h []float64) {
+	W := p.mkWeights(h)
+	// dLdX = dLdY · W          (B×n) = (B×m)·(m×n)
+	dLdX.Mul(dLdY, W)
+	// dLdH = dLdYᵀ · X         (m×n) = (m×B)·(B×n)
+	// This single GEMM replaces B outer products + accumulation.
+	// Interpret dLdH's flat backing slice as an (m×n) Dense so the
+	// multiply writes directly into dLdH with no copy.
+	dLdHMat := mat.NewDense(p.outputs, p.inputs, dLdH.RawVector().Data)
+	dLdHMat.Mul(dLdY.T(), X)
 }
 
-func (p *perceptron) F(dst *mat.VecDense, x mat.Vector, h []float64) {
-	dst.MulVec(p.mkWeights(h), x)
+func (p *perceptron) F(dst *mat.Dense, X mat.Matrix, h []float64) {
+	// Y = X · Wᵀ               (B×m) = (B×n)·(n×m)
+	dst.Mul(X, p.mkWeights(h).T())
 }
 
 func (p *perceptron) Shape() (inputs, outputs, weights int) {

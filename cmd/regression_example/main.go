@@ -99,14 +99,15 @@ func main() {
 		e, _ = model.Train(vxs, vys, lossFunction, 0)
 		log.Printf("loss: %e  iterations: %v", e, iterations)
 	}
-	tests, _ := test.MakeExamples(truth, *trainingExamples)
-	for _, t := range tests {
+	testX, _ := test.MakeExamples(truth, *trainingExamples)
+	rows, _ := testX.Dims()
+	for i := 0; i < rows; i++ {
 		y := mat.NewVecDense(outputCardinality, nil)
-		model.Eval(y, t)
-		log.Printf("%v\n->%v\n\n", mat.Formatted(t), mat.Formatted(y))
+		model.Eval(y, testX.RowView(i))
+		log.Printf("%v\n->%v\n\n", mat.Formatted(testX.RowView(i)), mat.Formatted(y))
 	}
 
-	blob, err := model.Marshal(tests[0])
+	blob, err := model.Marshal(testX.RowView(0))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -3,10 +3,10 @@ package fn
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	"gonum.org/v1/gonum/mat"
 	yaml "gopkg.in/yaml.v2"
-	"math/rand"
 )
 
 type Model struct {
@@ -15,7 +15,9 @@ type Model struct {
 }
 
 func (m Model) Eval(dst *mat.VecDense, x mat.Vector) {
-	m.layer.F(dst, x, m.weights)
+	// x is (n×1); x.T() is (1×n), a single-row batch.
+	yDense := mat.NewDense(1, dst.Len(), dst.RawVector().Data)
+	m.layer.F(yDense, x.T(), m.weights)
 }
 
 // MakeModel will return a Model from a LayerBuilder.

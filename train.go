@@ -8,33 +8,34 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func (model *Model) Train(xs, yHats []mat.Vector, lossFunction LossFunction, alpha float64) (float64, float64) {
+func (model *Model) Train(X, YHat *mat.Dense, lossFunction LossFunction, alpha float64) (float64, float64) {
 	inputs, outputs, numWeights := model.layer.Shape()
-	n := len(xs)
+	b, _ := X.Dims()
 
-	y := matrixpool.GetVec(outputs)
-	defer matrixpool.PutVec(y)
-	dLdY := matrixpool.GetVec(outputs)
-	defer matrixpool.PutVec(dLdY)
-	dLdX := matrixpool.GetVec(inputs)
-	defer matrixpool.PutVec(dLdX)
-	dLdWi := matrixpool.GetVec(numWeights)
-	defer matrixpool.PutVec(dLdWi)
+	Y := matrixpool.GetDense(b, outputs)
+	defer matrixpool.PutDense(Y)
+	dLdY := matrixpool.GetDense(b, outputs)
+	defer matrixpool.PutDense(dLdY)
+	dLdX := matrixpool.GetDense(b, inputs)
+	defer matrixpool.PutDense(dLdX)
 	dLdW := matrixpool.GetVec(numWeights)
 	defer matrixpool.PutVec(dLdW)
-	dLdW.Zero()
 
+	// Forward pass — single GEMM per layer.
+	model.layer.F(Y, X, model.weights)
+
+	// Compute loss per example (LossFunction is still per-vector).
 	var loss float64
-	for i, x := range xs {
-		model.Eval(y, x)
-		loss += lossFunction.F(dLdY, y, yHats[i])
-		model.layer.D(dLdX, dLdWi, dLdY, x, model.weights)
-		dLdW.AddVec(dLdW, dLdWi)
+	for row := 0; row < b; row++ {
+		loss += lossFunction.F(dLdY.RowView(row).(*mat.VecDense), Y.RowView(row), YHat.RowView(row))
 	}
 
+	// Backward pass — single call, dLdW comes back summed over batch.
+	model.layer.D(dLdX, dLdW, dLdY, X, model.weights)
+
 	w := mat.NewVecDense(len(model.weights), model.weights)
-	dLdW.ScaleVec(1./float64(n), dLdW)
-	meanLoss := loss / float64(n)
+	dLdW.ScaleVec(1./float64(b), dLdW)
+	meanLoss := loss / float64(b)
 	gradientNorm := mat.Norm(dLdW, 2)
 	if alpha == 0 || meanLoss == 0 {
 		return meanLoss, gradientNorm
@@ -51,12 +52,12 @@ type TrainOptions struct {
 	StatusDuration time.Duration
 }
 
-// TrainBatch
-// This is not a function of Model to convey the user shouldn't be using m while this is running.
-// An alternative idea is to have the user provide a function callback. IMO, use of channels is cleaner.
-func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, float64, float64)) float64 {
-	if a, b := len(xs), len(ys); a != b {
-		log.Fatalf("expecting sizes of xs & yHats to be equal; got %v, %v", a, b)
+// TrainBatch trains the model over multiple batches for the configured duration.
+func (m *Model) TrainBatch(X, Y *mat.Dense, opts TrainOptions, f func(int, float64, float64)) float64 {
+	rows, n := X.Dims()
+	_, yc := Y.Dims()
+	if yr, _ := Y.Dims(); yr != rows {
+		log.Fatalf("expecting sizes of X & Y to be equal; got %v, %v", rows, yr)
 	}
 	lastStatusCallTime := time.Now()
 	lastStatusCallIteration := 0
@@ -64,10 +65,10 @@ func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, f
 	var e float64
 	var gradientNorm float64
 	for i := 0; time.Since(startTime) < opts.TrainDuration; i++ {
-		bxs := batch(xs, opts.BatchSize, i)
-		bys := batch(ys, opts.BatchSize, i)
+		bx := batchDense(X, rows, n, opts.BatchSize, i)
+		by := batchDense(Y, rows, yc, opts.BatchSize, i)
 
-		e, gradientNorm = m.Train(bxs, bys, opts.LossFunction, opts.Alpha)
+		e, gradientNorm = m.Train(bx, by, opts.LossFunction, opts.Alpha)
 		if time.Since(lastStatusCallTime) < opts.StatusDuration {
 			continue
 		}
@@ -78,15 +79,15 @@ func (m *Model) TrainBatch(xs, ys []mat.Vector, opts TrainOptions, f func(int, f
 	return e
 }
 
-func batch(x []mat.Vector, batchSize int, i int) []mat.Vector {
-	numBatches := len(x) / batchSize
-	if len(x)%batchSize != 0 {
+func batchDense(X *mat.Dense, totalRows, cols, batchSize, i int) *mat.Dense {
+	numBatches := totalRows / batchSize
+	if totalRows%batchSize != 0 {
 		numBatches++
 	}
 	start := (i % numBatches) * batchSize
 	end := start + batchSize
-	if end > len(x) {
-		end = len(x)
+	if end > totalRows {
+		end = totalRows
 	}
-	return x[start:end]
+	return X.Slice(start, end, 0, cols).(*mat.Dense)
 }
