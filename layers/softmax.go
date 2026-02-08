@@ -6,6 +6,7 @@ import (
 	"fn"
 	"fn/matrixpool"
 
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -26,6 +27,7 @@ func (s softmax) Shape() (inputs, outputs, weights int) {
 func (s softmax) F(dst *mat.Dense, X mat.Matrix, _ []float64) {
 	rows, _ := X.Dims()
 	for row := 0; row < rows; row++ {
+		dstRow := dst.RawRowView(row)
 		// Find max for numerical stability.
 		m := X.At(row, 0)
 		for i := 1; i < s.n; i++ {
@@ -34,14 +36,12 @@ func (s softmax) F(dst *mat.Dense, X mat.Matrix, _ []float64) {
 			}
 		}
 		var sum float64
-		for i := 0; i < s.n; i++ {
+		for i := range dstRow {
 			e := math.Exp(X.At(row, i) - m)
-			dst.Set(row, i, e)
+			dstRow[i] = e
 			sum += e
 		}
-		for i := 0; i < s.n; i++ {
-			dst.Set(row, i, dst.At(row, i)/sum)
-		}
+		floats.Scale(1/sum, dstRow)
 	}
 }
 
@@ -53,14 +53,16 @@ func (s softmax) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.M
 	s.F(Y, X, h)
 
 	for row := 0; row < rows; row++ {
-		// Jacobian: dY[i]/dX[j] = y[i] * (delta_{ij} - y[j])
 		// VJP: dLdX[j] = y[j] * (dLdY[j] - dot(dLdY, y))
-		var dot float64
-		for i := 0; i < s.n; i++ {
-			dot += dLdY.At(row, i) * Y.At(row, i)
+		yRow := Y.RawRowView(row)
+		dLdXRow := dLdX.RawRowView(row)
+		// dLdY is mat.Matrix — read into dLdXRow as scratch, then compute in-place.
+		for i := range dLdXRow {
+			dLdXRow[i] = dLdY.At(row, i)
 		}
-		for j := 0; j < s.n; j++ {
-			dLdX.Set(row, j, Y.At(row, j)*(dLdY.At(row, j)-dot))
+		dot := floats.Dot(dLdXRow, yRow)
+		for j := range dLdXRow {
+			dLdXRow[j] = yRow[j] * (dLdXRow[j] - dot)
 		}
 	}
 	// dLdH is nil - softmax has no weights

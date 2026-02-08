@@ -8,10 +8,20 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+// Train performs one gradient descent step on a batch of examples.
+// X is (b × inputs), YHat is (b × outputs) where b is the batch size.
+// Returns mean loss and gradient norm.
+//
+// The forward and backward passes operate on the full batch matrix in a
+// single call per layer, enabling level-3 BLAS (GEMM) instead of per-example
+// matrix-vector operations. The loss function is still per-vector, so we
+// iterate over rows to build dLdY before passing the full gradient matrix
+// to the backward pass.
 func (model *Model) Train(X, YHat *mat.Dense, lossFunction LossFunction, alpha float64) (float64, float64) {
 	inputs, outputs, numWeights := model.layer.Shape()
 	b, _ := X.Dims()
 
+	// All temporaries are pooled to avoid allocation in this hot path.
 	Y := matrixpool.GetDense(b, outputs)
 	defer matrixpool.PutDense(Y)
 	dLdY := matrixpool.GetDense(b, outputs)
@@ -21,18 +31,28 @@ func (model *Model) Train(X, YHat *mat.Dense, lossFunction LossFunction, alpha f
 	dLdW := matrixpool.GetVec(numWeights)
 	defer matrixpool.PutVec(dLdW)
 
-	// Forward pass — single GEMM per layer.
+	// Forward pass — batch matrix through all layers.
 	model.layer.F(Y, X, model.weights)
 
-	// Compute loss per example (LossFunction is still per-vector).
+	// Compute loss and build the dLdY gradient matrix row by row.
+	// LossFunction operates per-vector, so we iterate over rows. We use
+	// RowViewOf to reuse VecDense headers rather than RowView, which would
+	// allocate a new VecDense on the heap for every row. RowViewOf points
+	// the receiver at a row of the matrix without copying or allocating.
 	var loss float64
+	var yRow, dLdYRow, yHatRow mat.VecDense
 	for row := 0; row < b; row++ {
-		loss += lossFunction.F(dLdY.RowView(row).(*mat.VecDense), Y.RowView(row), YHat.RowView(row))
+		yRow.RowViewOf(Y, row)
+		dLdYRow.RowViewOf(dLdY, row)
+		yHatRow.RowViewOf(YHat, row)
+		loss += lossFunction.F(&dLdYRow, &yRow, &yHatRow)
 	}
 
-	// Backward pass — single call, dLdW comes back summed over batch.
+	// Backward pass — single call for the full batch. Each layer's D
+	// sums weight gradients (dLdW) internally across the batch.
 	model.layer.D(dLdX, dLdW, dLdY, X, model.weights)
 
+	// Average gradients and loss over the batch, then update weights.
 	w := mat.NewVecDense(len(model.weights), model.weights)
 	dLdW.ScaleVec(1./float64(b), dLdW)
 	meanLoss := loss / float64(b)
