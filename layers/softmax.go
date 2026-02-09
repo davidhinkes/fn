@@ -10,60 +10,56 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+func Softmax() fn.LayerBuilder {
+	return func(inputs int) fn.Layer {
+		return wrapVectorLayer(softmax{n: inputs})
+	}
+}
+
 type softmax struct {
 	n int
 }
 
-func Softmax() fn.LayerBuilder {
-	return func(inputs int) fn.Layer {
-		return softmax{n: inputs}
-	}
-}
+// We expect softmax to adhere to the VectorLayer
+var _ VectorLayer = softmax{}
 
 func (s softmax) Shape() (inputs, outputs, weights int) {
 	return s.n, s.n, 0
 }
 
-func (s softmax) F(dst *mat.Dense, X mat.Matrix, _ []float64) {
-	rows, _ := X.Dims()
-	for row := 0; row < rows; row++ {
-		dstRow := dst.RawRowView(row)
-		// Find max for numerical stability.
-		m := X.At(row, 0)
-		for i := 1; i < s.n; i++ {
-			if v := X.At(row, i); v > m {
-				m = v
-			}
+func (s softmax) F(dst *mat.VecDense, x mat.Vector, _ []float64) {
+	raw := dst.RawVector().Data
+	// Find max for numerical stability.
+	m := x.AtVec(0)
+	for i := 1; i < s.n; i++ {
+		if v := x.AtVec(i); v > m {
+			m = v
 		}
-		var sum float64
-		for i := range dstRow {
-			e := math.Exp(X.At(row, i) - m)
-			dstRow[i] = e
-			sum += e
-		}
-		floats.Scale(1/sum, dstRow)
 	}
+	var sum float64
+	for i := range raw {
+		e := math.Exp(x.AtVec(i) - m)
+		raw[i] = e
+		sum += e
+	}
+	floats.Scale(1/sum, raw)
 }
 
-func (s softmax) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.Matrix, h []float64) {
-	rows, _ := X.Dims()
+func (s softmax) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
 	// Recompute forward output for the VJP.
-	Y := matrixpool.GetDense(rows, s.n)
-	defer matrixpool.PutDense(Y)
-	s.F(Y, X, h)
+	y := matrixpool.GetVec(s.n)
+	defer matrixpool.PutVec(y)
+	s.F(y, x, h)
 
-	for row := 0; row < rows; row++ {
-		// VJP: dLdX[j] = y[j] * (dLdY[j] - dot(dLdY, y))
-		yRow := Y.RawRowView(row)
-		dLdXRow := dLdX.RawRowView(row)
-		// dLdY is mat.Matrix — read into dLdXRow as scratch, then compute in-place.
-		for i := range dLdXRow {
-			dLdXRow[i] = dLdY.At(row, i)
-		}
-		dot := floats.Dot(dLdXRow, yRow)
-		for j := range dLdXRow {
-			dLdXRow[j] = yRow[j] * (dLdXRow[j] - dot)
-		}
+	// VJP: dLdX[j] = y[j] * (dLdY[j] - dot(dLdY, y))
+	yRaw := y.RawVector().Data
+	dLdXRaw := dLdX.RawVector().Data
+	// Read dLdY into dLdXRaw as scratch, then compute in-place.
+	for i := range dLdXRaw {
+		dLdXRaw[i] = dLdY.AtVec(i)
 	}
-	// dLdH is nil - softmax has no weights
+	dot := floats.Dot(dLdXRaw, yRaw)
+	for j := range dLdXRaw {
+		dLdXRaw[j] = yRaw[j] * (dLdXRaw[j] - dot)
+	}
 }

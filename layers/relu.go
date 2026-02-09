@@ -8,7 +8,7 @@ import (
 
 func Relu() fn.LayerBuilder {
 	return func(inputs int) fn.Layer {
-		return staticFunc{
+		return wrapVectorLayer(staticFunc{
 			f: func(x float64) float64 {
 				return math.Max(.1*x, x)
 			},
@@ -19,6 +19,6 @@ func Relu() fn.LayerBuilder {
 				return 1.
 			},
 			n: inputs,
-		}
+		})
 	}
 }

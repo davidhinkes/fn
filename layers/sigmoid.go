@@ -29,10 +29,10 @@ func dSigmoid(x float64) float64 {
 
 func Sigmoid() fn.LayerBuilder {
 	return func(inputs int) fn.Layer {
-		return staticFunc{
+		return wrapVectorLayer(staticFunc{
 			f: sigmoid,
 			d: dSigmoid,
 			n: inputs,
-		}
+		})
 	}
 }

@@ -107,7 +107,7 @@ func TestEquivalentLayer(t *testing.T) {
 	n := 128
 
 	doubleBuilder := func(inputs int) fn.Layer {
-		return staticFunc{f: f, d: d, n: inputs}
+		return wrapVectorLayer(staticFunc{f: f, d: d, n: inputs})
 	}
 
 	testLayerEqual(t, n,

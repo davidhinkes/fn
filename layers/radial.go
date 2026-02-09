@@ -10,10 +10,10 @@ import (
 
 func Radial(outputs int) fn.LayerBuilder {
 	return func(inputs int) fn.Layer {
-		return radial{
+		return wrapVectorLayer(radial{
 			inputs:  inputs,
 			outputs: outputs,
-		}
+		})
 	}
 }
 
@@ -26,49 +26,38 @@ func (r radial) Shape() (inputs, outputs, weights int) {
 	return r.inputs, r.outputs, r.inputs * r.outputs
 }
 
-func (r radial) F(dst *mat.Dense, X mat.Matrix, h []float64) {
-	rows, _ := X.Dims()
+func (r radial) F(dst *mat.VecDense, x mat.Vector, h []float64) {
 	w := mat.NewDense(r.outputs, r.inputs, h)
-	for row := 0; row < rows; row++ {
-		for i := 0; i < r.outputs; i++ {
-			var sum float64
-			for j := 0; j < r.inputs; j++ {
-				d := X.At(row, j) - w.At(i, j)
-				sum += d * d
-			}
-			dst.Set(row, i, math.Sqrt(sum))
-		}
-	}
-}
-
-func (r radial) D(dLdX *mat.Dense, dLdH *mat.VecDense, dLdY mat.Matrix, X mat.Matrix, h []float64) {
-	rows, _ := X.Dims()
-	// Recompute forward output.
-	Y := mat.NewDense(rows, r.outputs, nil)
-	r.F(Y, X, h)
-
-	w := mat.NewDense(r.outputs, r.inputs, h)
-
-	// Zero dLdH — we accumulate across batch rows.
-	for i := 0; i < dLdH.Len(); i++ {
-		dLdH.SetVec(i, 0)
-	}
-
-	for row := 0; row < rows; row++ {
-		// Zero this row of dLdX — we accumulate across output centers.
+	for i := 0; i < r.outputs; i++ {
+		var sum float64
 		for j := 0; j < r.inputs; j++ {
-			dLdX.Set(row, j, 0)
+			d := x.AtVec(j) - w.At(i, j)
+			sum += d * d
 		}
-		for i := 0; i < r.outputs; i++ {
-			f := dLdY.At(row, i) / Y.At(row, i)
-			for j := 0; j < r.inputs; j++ {
-				val := X.At(row, j) - w.At(i, j)
-				dLdX.Set(row, j, dLdX.At(row, j)+f*val)
-				idx := i*r.inputs + j
-				dLdH.SetVec(idx, dLdH.AtVec(idx)-f*val)
-			}
+		dst.SetVec(i, math.Sqrt(sum))
+	}
+}
+
+func (r radial) D(dLdX *mat.VecDense, dLdH *mat.VecDense, dLdY mat.Vector, x mat.Vector, h []float64) {
+	// Recompute forward output.
+	y := mat.NewVecDense(r.outputs, nil)
+	r.F(y, x, h)
+
+	w := mat.NewDense(r.outputs, r.inputs, h)
+
+	// Zero dLdX — we accumulate across output centers.
+	for j := 0; j < r.inputs; j++ {
+		dLdX.SetVec(j, 0)
+	}
+	for i := 0; i < r.outputs; i++ {
+		f := dLdY.AtVec(i) / y.AtVec(i)
+		for j := 0; j < r.inputs; j++ {
+			val := x.AtVec(j) - w.At(i, j)
+			dLdX.SetVec(j, dLdX.AtVec(j)+f*val)
+			idx := i*r.inputs + j
+			dLdH.SetVec(idx, -f*val)
 		}
 	}
 }
 
-var _ fn.Layer = radial{}
+var _ VectorLayer = radial{}
