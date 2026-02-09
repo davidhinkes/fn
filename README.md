@@ -4,9 +4,13 @@ FN is a functional network, a generalization of neural networks implemented in G
 
 ## Features
 
-- **Layer composition**: Serial and parallel layer composition for building complex network architectures
-- **Multiple layer types**: Perceptron, ReLU, sigmoid, bias, scalar, radial basis functions, and static function layers
-- **Training**: Multi-threaded batch training with gradient descent
+- **Batch-oriented Layer interface**: Forward and backward passes operate on full batch matrices, enabling level-3 BLAS (GEMM) for layers like Perceptron
+- **VectorLayer abstraction**: Simpler per-vector interface for element-wise and pointwise layers, automatically adapted to the batch interface via `vectorLayerConverter`
+- **Layer composition**: Serial composition for chaining layers sequentially
+- **Multiple layer types**: Perceptron, ReLU, sigmoid, softmax, bias, scalar, radial basis functions, and static function layers
+- **VJP-based backpropagation**: Backward pass uses Vector-Jacobian Products instead of materializing full Jacobian matrices — O(n) for element-wise layers instead of O(n^2)
+- **Training**: Sequential batch training with gradient descent
+- **Loss functions**: Squared error and cross-entropy
 - **Persistence**: YAML marshaling for model serialization
 - **Cloud integration**: Google Cloud Storage support for model storage
 
@@ -18,26 +22,9 @@ FN is a functional network, a generalization of neural networks implemented in G
 
 ## Future Improvements
 
-### Cross-Entropy Loss for Classification
+### Fused Softmax + Cross-Entropy
 
-**Current state**: The codebase uses Squared Error Loss (MSE) for both regression and classification tasks. While MSE works fine for regression, it's suboptimal for classification.
-
-**Why Cross-Entropy is better for classification**:
-1. **Probabilistically motivated** - Measures KL divergence between true and predicted probability distributions
-2. **Better gradient behavior** - Gradients remain strong even when predictions are wrong, leading to faster convergence
-3. **Natural pairing with Softmax** - The combination softmax + cross-entropy has a clean gradient: dL/dLogits = yHat - y
-4. **Avoids gradient saturation** - MSE + sigmoid can have vanishing gradients when predictions are confidently wrong
-
-**Implementation approach**:
-1. Add new loss function in `lossfunctions/cross_entropy.go`:
-   - Implement `F(y, yHat)` returning: `-sum(y * log(yHat))` and gradient `-(y / yHat)`
-2. Add Softmax activation layer in `layers/softmax.go`:
-   - Forward: `softmax(x_i) = exp(x_i) / sum(exp(x_j))`
-   - Backward: Jacobian matrix for chain rule
-3. OR: Combine Softmax + Cross-Entropy into single `SoftmaxCrossEntropy` loss for numerical stability and cleaner gradients
-4. Update `cmd/binary_integer_example/main.go` to use new loss function
-
-**Trade-offs**: Adds complexity to the loss function interface, but significantly improves classification training performance.
+Softmax and cross-entropy are both implemented as separate components (`layers/softmax.go`, `lossfunctions/cross_entropy.go`). A fused `SoftmaxCrossEntropy` loss could provide better numerical stability and the clean gradient `dL/dLogits = yHat - y`, avoiding the per-element division in the separate backward passes.
 
 ## Project History & Key Learnings
 
@@ -132,6 +119,38 @@ FN is a functional network, a generalization of neural networks implemented in G
 - Zero'd pooled matrices before reuse to avoid stale data
 - Maintained thread-safety with mutex-protected pool maps keyed by matrix dimensions
 
+#### Phase 9: Batch Layer Interface & VJP (Jan-Feb 2026)
+**The Batch-First Rewrite:**
+- **Major API change**: Layer `F` and `D` now operate on batch matrices (`mat.Matrix` inputs, `*mat.Dense` outputs) instead of single vectors
+- Perceptron forward `Y = X·Wᵀ` and backward `dLdW = dLdYᵀ·X` are single GEMM calls — level-3 BLAS replaces B separate matrix-vector multiplies
+- Inputs use `mat.Matrix` interface (read-only); outputs use `*mat.Dense` (caller pre-allocates)
+- `dLdH` stays `*mat.VecDense` since the model owns one flat weight vector regardless of batch size
+
+**VJP over Jacobians:**
+- Replaced full Jacobian materialization with Vector-Jacobian Products in the backward pass
+- Element-wise layers (sigmoid, ReLU, softmax) went from O(n^2) diagonal Jacobian multiply to O(n) pointwise
+- Eliminated gonum's slow `DiagDense` multiplication entirely
+
+**Softmax & Cross-Entropy:**
+- Implemented softmax with numerically stable max-subtraction trick
+- Added cross-entropy loss function
+- Softmax VJP: `dLdX[j] = y[j] * (dLdY[j] - dot(dLdY, y))` — no Jacobian needed
+
+**Sequential Training:**
+- Removed goroutines from training loop — batch GEMM already parallelizes via BLAS threads
+- Simplified `Model.Train` to a single forward/backward call on the full batch matrix
+
+#### Phase 10: VectorLayer Abstraction (Feb 2026)
+**Two-tier Layer design:**
+- Added `VectorLayer` interface — per-vector `F`/`D` signatures using `mat.Vector` instead of `mat.Matrix`
+- `vectorLayerConverter` adapter wraps any `VectorLayer` to satisfy the batch `fn.Layer` interface
+- Layers that don't benefit from batch GEMM (sigmoid, ReLU, softmax, scalar, radial, bias) implement the simpler `VectorLayer`; the adapter handles batch iteration
+- Perceptron stays as a direct `fn.Layer` since it genuinely benefits from GEMM
+
+**Branchless row extraction:**
+- Used `mat.Row(buf, i, M)` to extract rows from any `mat.Matrix` into pooled buffers — works uniformly for `*mat.Dense` and `mat.Transpose` (from single-vector `Eval`) without type assertions
+- Scratch vectors pooled once before the loop and reused across iterations
+
 ### Key Learnings
 
 1. **Performance intuition can be wrong**: DiagDense *should* be faster but isn't - measure everything
@@ -157,4 +176,12 @@ FN is a functional network, a generalization of neural networks implemented in G
 11. **The right abstraction enables optimization**: Shape() API made pre-allocation possible; output parameters enabled pooling
 
 12. **sync.Pool is powerful when used correctly**: Dimension-keyed pools with Zero() before reuse provides safe, fast matrix reuse
+
+13. **VJP beats full Jacobians**: For element-wise layers, computing the Vector-Jacobian Product directly is O(n) vs O(n^2) for materializing the diagonal Jacobian and multiplying — and avoids gonum's slow `DiagDense`
+
+14. **Batch GEMM subsumes thread-per-example parallelism**: Once the Layer interface operates on batch matrices, BLAS threads parallelize the GEMM internally — explicit goroutines in the training loop become redundant overhead
+
+15. **Two-tier interfaces reduce boilerplate**: Most layers are naturally per-vector; forcing them into a batch interface adds repetitive row-iteration code. A simple adapter (`VectorLayer` → `fn.Layer`) lets each layer be written at its natural level of abstraction while the batch plumbing is written once
+
+16. **`mat.Row` unifies row extraction**: Rather than type-asserting `mat.Matrix` to `*mat.Dense` for `RowViewOf` with a fallback for non-Dense, `mat.Row(buf, i, M)` works uniformly on any `mat.Matrix` — one code path, no branching
 
